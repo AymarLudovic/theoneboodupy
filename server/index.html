@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiement</title>
+    
+</head>
+<body>
+    <h1>Renouveler l'abonnement</h1>
+    <script src="https://www.paypal.com/sdk/js?client-id=BAA1hKZf5Zck7h4kaaUrGgWRUadGX8f1gSKuit2yndwpwQiV0FgUh7nNdOZho8ycZisxqHe5acaVHwoXBg&components=hosted-buttons&disable-funding=venmo&currency=EUR"></script>
+    <div id="paypal-container-JZFA8DHZ3T33C"></div>
+    <script>
+      paypal.HostedButtons({
+        hostedButtonId: "JZFA8DHZ3T33C",
+      }).render("#paypal-container-JZFA8DHZ3T33C")
+    </script>
+</body>
+</html>

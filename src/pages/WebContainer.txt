@@ -1,0 +1,147 @@
+import React, { useState, useEffect } from 'react';
+import { WebContainer, FileSystemTree } from '@webcontainer/api';
+
+interface WebContainerComponentProps {
+    codeFiles: { filename: string; code: string }[];
+    setWebContainerURL: (url: string | null) => void;
+}
+
+const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles, setWebContainerURL }) => {
+    const [webContainer, setWebContainer] = useState<WebContainer | null>(null);
+    const [internalWebContainerURL, setInternalWebContainerURL] = useState<string | null>(null);
+
+    useEffect(() => {
+        const initializeWebContainer = async () => {
+            try {
+                const wc = await WebContainer.boot();
+                setWebContainer(wc);
+                console.log('WebContainer started');
+                await updateWebContainer(wc, codeFiles);
+            } catch (error) {
+                console.error("Failed to boot WebContainer:", error);
+            }
+        };
+
+        initializeWebContainer();
+
+        return () => {
+            if (webContainer) {
+                // webContainer.dispose();
+                console.log('WebContainer should dispose here (but is commented out)');
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (webContainer) {
+            updateWebContainer(webContainer, codeFiles);
+        }
+    }, [codeFiles, webContainer]);
+
+    const validateFilename = (filename: string): string => {
+        let validatedFilename = filename.replace(/[^a-zA-Z0-9/.-]/g, '_');
+        validatedFilename = validatedFilename.replace(/^_+|_+$/g, '');
+        return validatedFilename;
+    };
+
+    const createFileSystemTree = (files: { filename: string; code: string }[]): FileSystemTree => {
+        const fileSystemTree: FileSystemTree = {};
+
+        files.forEach(file => {
+            const validatedFilename = validateFilename(file.filename);
+            const fullPath = validatedFilename;
+            const pathParts = fullPath.split('/');
+
+            let currentLevel: any = fileSystemTree;
+            for (let i = 0; i < pathParts.length; i++) {
+                if (pathParts[i] === "") continue;
+                const part = pathParts[i];
+                if (i === pathParts.length - 1) {
+                    currentLevel[part] = { file: { contents: file.code } };
+                } else {
+                    if (!currentLevel[part]) {
+                        currentLevel[part] = { directory: {} };
+                    }
+                    currentLevel = currentLevel[part].directory;
+                }
+            }
+        });
+
+        return fileSystemTree;
+    };
+
+    const updateWebContainer = async (webContainerInstance: WebContainer, codeFiles: { filename: string; code: string }[]) => {
+        if (!webContainerInstance) {
+            console.error("WebContainer not initialized");
+            return;
+        }
+
+        try {
+            const fileSystemTree = createFileSystemTree(codeFiles);
+            console.log('FileSystemTree:', fileSystemTree);
+
+            await webContainerInstance.mount(fileSystemTree);
+
+            if (fileSystemTree['package.json'] && 'file' in fileSystemTree['package.json']) {
+                console.log('Installing dependencies...');
+                const installProcess = await webContainerInstance.spawn('npm', ['install']);
+                installProcess.output.pipeTo(new WritableStream({
+                    write(data) {
+                        console.log(data);
+                    }
+                }));
+                const installExitCode = await installProcess.exit;
+                if (installExitCode !== 0) {
+                    console.error(`npm install failed with code ${installExitCode}`);
+                    return;
+                }
+                console.log('Dependencies installed');
+            } else {
+                console.warn('No package.json found, skipping dependency installation.');
+                return;  // Important: Arrête si pas de package.json
+            }
+
+            // Retrait de l'étape de build
+            // console.log('Building the application...');
+            // const buildProcess = await webContainerInstance.spawn('npm', ['run', 'build']);
+            // buildProcess.output.pipeTo(new WritableStream({
+            //     write(data) {
+            //         console.log(data);
+            //     }
+            // }));
+            // const buildExitCode = await buildProcess.exit;
+            // if (buildExitCode !== 0) {
+            //     console.error(`npm build failed with code ${buildExitCode}`);
+            //     return; // Important: Arrête si le build échoue
+            // }
+            // console.log('Application built successfully');
+
+            console.log('Starting dev server...');
+            const devServerProcess = await webContainerInstance.spawn('npm', ['run', 'dev']); // Utilisation de "dev"
+            devServerProcess.output.pipeTo(new WritableStream({
+                write(data) {
+                    console.log(data);
+                }
+            }));
+
+            webContainerInstance.on('server-ready', (port, url) => {
+                console.log(`Server ready on port ${port}, URL: ${url}`);
+                setInternalWebContainerURL(url);
+            });
+
+        } catch (error: any) {
+            console.error("Error updating WebContainer:", error);
+            console.error("Detailed error:", error.message, error.stack);
+        }
+    };
+
+    useEffect(() => {
+        if (internalWebContainerURL) {
+            setWebContainerURL(internalWebContainerURL);
+        }
+    }, [internalWebContainerURL, setWebContainerURL]);
+
+    return null;
+};
+
+export default WebContainerComponent;

@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/public/DM_Sans/DMSans-VariableFont_opsz\,wght.ttf') format('truetype');
+}
+
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  line-height: normal;
+}
+
+li { list-style: none; }
+
+button {
+  cursor: pointer;
+}
+
+a {
+
+  text-decoration: none;
+}
+
+img { height: auto; }
+
+
+button {
+
+  border: none;
+  font: inherit;
+}
+
+button { cursor: pointer; }
+
+input {
+  width: 100%;
+  outline: none;
+}
+
+::selection {
+  font-weight: 600;
+  background-color: #e2dbee;
+  color: rgb(0, 0, 0);
+}
+
+::-webkit-scrollbar {
+  width: 8px; /* Largeur de la scrollbar fine */
+}
+
+::-webkit-scrollbar-track {
+  background: #111; /* Couleur de l'arrière-plan de la scrollbar */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #222; /* Couleur de la "poignée" de la scrollbar */
+  border-radius: 10px; /* Coins arrondis de la "poignée" */
+  border: 2px solid #222; /* Bordure autour de la "poignée" */
+}
+
+/* Pour Firefox */
+* {
+  scrollbar-color: #222 var(--accents-1); /* Couleur de la "poignée" et de l'arrière-plan */
+  scrollbar-width: thin; /* Largeur de la scrollbar fine */
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background: white;
+}
+
+header {
+  background: none;
+}
+
