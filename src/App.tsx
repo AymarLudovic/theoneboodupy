@@ -18,6 +18,7 @@ function App() {
           <Route path="/payment" element={<Payment />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/builder" element={<Builder />} />
+          <Route path="/:id/builder" element={<Builder />} />
           <Route path="/webcontainer" element={<WebContainerPreview />} /> {/* Nouvelle route */}
           <Route path="/webcontainer/connect/:id" element={<WebContainerPreview />} /> {/* Nouvelle route */}
         </Routes>

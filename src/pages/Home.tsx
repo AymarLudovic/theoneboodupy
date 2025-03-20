@@ -56,7 +56,39 @@ const Home = () => {
 
   return (
     <>
-      
+      <section className="w-full h-[100vh] flex items-center justify-center">
+        <div className="w-1/2 h-full p-6">
+        <div className="flex items-center justify-center">
+        <div className='flex items-center gap-1   rounded-full bg-[#fafafa]'>
+                    <div className='p-1 px-2 py-[6px] bg-[#eee] cursor-pointer rounded-full'>
+                    <svg width="20" className='h-[20px] w-[20px]' height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20 10.0196C14.6358 10.3431 10.3431 14.6358 10.0196 20H9.98042C9.65687 14.6358 5.36425 10.3431 0 10.0196V9.98043C5.36425 9.65688 9.65687 5.36424 9.98042 0H10.0196C10.3431 5.36424 14.6358 9.65688 20 9.98043V10.0196Z" fill="url(#paint0_radial_809_11874)" />
+  <defs>
+    <radialGradient id="paint0_radial_809_11874" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(-6.13727 9.97493) scale(21.6266 172.607)">
+      <stop offset="0.385135" stop-color="#9E72BA" />
+      <stop offset="0.734299" stop-color="#D65C67" />
+      <stop offset="0.931035" stop-color="#D6635C" />
+    </radialGradient>
+  </defs>
+</svg>
+                    </div>
+                    <div  className='p-1 px-2 py-[6px] cursor-pointer rounded-full'>
+                    <svg xmlns="http://www.w3.org/2000/svg" className='h-[20px] w-[20px]' viewBox="0 0 28 28" fill="#000">
+          <path d="M 6 2 L 24 2 L 24 11 L 15 11 Z M 6 11 L 15 11 L 24 20 L 15 20 L 15 29 L 6 20 Z"></path>
+      </svg>
+                    </div>
+                </div>
+        </div>
+          <div className="h-full flex items-center">
+            <h1 className="font-semibold text-8xl leading-35">
+              Your Dreaming app in Minutes With AI.
+            </h1>
+          </div>
+        </div>
+        <div className="w-1/2 h-full bg-[#fafafa]">
+          f
+        </div>
+      </section>
       <section className="h-[auto] mt-44 w-full overflow-x-hidden flex-wrap flex items-center justify-center">
         <div className="flex flex-col items-center gap-1">
           <motion.h1 className="md:text-5xl font-bold" variants={reveal} initial="hidden" animate="show">

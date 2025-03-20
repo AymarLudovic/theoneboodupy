@@ -9,13 +9,14 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Resource-Policy': 'same-origin'
     },
-    // proxy: {
-    //   '/payments': {
-    //     target: 'http://localhost:5000', // Rediriger vers le serveur pour la page index.html
-    //     changeOrigin: true,
-    //     rewrite: (path) => path.replace(/^\/payments/, '/payments'), // Assurez-vous que le chemin est correct
-    //   },
-    // },
+    proxy: {
+      '/payments': {
+        target: 'http://localhost:5000', // Rediriger vers le serveur pour la page index.html
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/payments/, '/payments'), // Assurez-vous que le chemin est correct
+      },
+    },
   },
 });

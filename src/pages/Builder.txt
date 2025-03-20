@@ -233,3 +233,12 @@ const Builder = () => {
 };
 
 export default Builder;
+
+
+<label>
+                    Type de projet:
+                    <select value={projectType} onChange={(e) => setProjectType(e.target.value as 'web' | 'mobile')}>
+                        <option value="web">Web</option>
+                        <option value="mobile">Mobile (React Native Expo)</option>
+                    </select>
+                </label>

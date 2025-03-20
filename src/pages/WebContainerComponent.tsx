@@ -15,6 +15,7 @@ interface WebContainerComponentProps {
 const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles, setWebContainerURL, projectType }) => {
     const [webContainer, setWebContainer] = useState<WebContainer | null>(null);
     const [internalWebContainerURL, setInternalWebContainerURL] = useState<string | null>(null);
+    const [initialized, setInitialized] = useState(false); // Nouvel état
 
     useEffect(() => {
         const initializeWebContainer = async () => {
@@ -22,7 +23,7 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles
                 const wc = await WebContainer.boot();
                 setWebContainer(wc);
                 console.log('WebContainer started');
-                await updateWebContainer(wc, codeFiles, projectType); // Passe le type de projet
+                setInitialized(true); // Marquer comme initialisé
             } catch (error) {
                 console.error("Failed to boot WebContainer:", error);
             }
@@ -39,10 +40,17 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles
     }, []);
 
     useEffect(() => {
-        if (webContainer) {
+        if (webContainer && initialized) { // Vérifier webContainer et initialized
+            console.log('CodeFiles:', codeFiles); // Vérifier le contenu de codeFiles
+            const packageJsonFile = codeFiles.find(file => file.filename === 'package.json');
+            if (packageJsonFile) {
+                console.log('package.json found:', packageJsonFile);
+            } else {
+                console.warn('package.json NOT found in codeFiles');
+            }
             updateWebContainer(webContainer, codeFiles, projectType); // Passe le type de projet
         }
-    }, [codeFiles, webContainer, projectType]);
+    }, [codeFiles, webContainer, projectType, initialized]);
 
     const validateFilename = (filename: string): string => {
         let validatedFilename = filename.replace(/[^a-zA-Z0-9/.-]/g, '_');
@@ -52,30 +60,35 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles
 
     const createFileSystemTree = (files: CodeFile[]): FileSystemTree => {
         const fileSystemTree: FileSystemTree = {};
-
+    
         files.forEach(file => {
             const validatedFilename = validateFilename(file.filename);
             const fullPath = validatedFilename;
             const pathParts = fullPath.split('/');
-
+    
             let currentLevel: any = fileSystemTree;
             for (let i = 0; i < pathParts.length; i++) {
                 if (pathParts[i] === "") continue;
                 const part = pathParts[i];
+    
+                // Correction importante : Remplace "_tabs_" par "(tabs)"
+                const correctedPart = part === "_tabs_" ? "(tabs)" : part;
+    
                 if (i === pathParts.length - 1) {
-                    currentLevel[part] = { file: { contents: file.code } };
+                    currentLevel[correctedPart] = { file: { contents: file.code } };
                 } else {
-                    if (!currentLevel[part]) {
-                        currentLevel[part] = { directory: {} };
+                    if (!currentLevel[correctedPart]) {
+                        currentLevel[correctedPart] = { directory: {} };
                     }
-                    currentLevel = currentLevel[part].directory;
+                    currentLevel = currentLevel[correctedPart].directory;
                 }
             }
         });
-
+    
         return fileSystemTree;
     };
-    const runPrefixCommand = async (webContainerInstance: WebContainer, command: string, args: string[]): Promise<number> => {
+
+    const runCommand = async (webContainerInstance: WebContainer, command: string, args: string[]): Promise<number> => {
         const process = await webContainerInstance.spawn(command, args);
         process.output.pipeTo(new WritableStream({
             write(data) {
@@ -97,6 +110,21 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles
 
             await webContainerInstance.mount(fileSystemTree);
 
+            // Ensure Node.js and npm are available
+            console.log('Checking Node.js and npm...');
+            const nodeCheckExitCode = await runCommand(webContainerInstance, 'node', ['-v']);
+            if (nodeCheckExitCode !== 0) {
+                console.error('Node.js not found. Installation may be required.');
+                return;
+            }
+
+            const npmCheckExitCode = await runCommand(webContainerInstance, 'npm', ['-v']);
+            if (npmCheckExitCode !== 0) {
+                console.error('npm not found. Installation may be required.');
+                return;
+            }
+            console.log('Node.js and npm are available.');
+
             if (fileSystemTree['package.json'] && 'file' in fileSystemTree['package.json']) {
                 console.log('Installing dependencies...');
                 const installProcess = await webContainerInstance.spawn('npm', ['install']);
@@ -116,36 +144,8 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles
                 return;  // Important: Arrête si pas de package.json
             }
 
-            // Installation d'Expo CLI si le projet est mobile
-            if (projectType === 'mobile') {
-                console.log('Setting npm prefix...');
-                const setPrefixExitCode = await runPrefixCommand(webContainerInstance, 'npm', ['config', 'set', 'prefix', '~/.npm-global']);
-                if (setPrefixExitCode !== 0) {
-                    console.error(`Failed to set npm prefix with code ${setPrefixExitCode}`);
-                    return;
-                }
-
-                console.log('Installing Expo CLI...');
-                const expoInstallProcess = await webContainerInstance.spawn('npm', ['install', '-g', 'expo-cli']);
-                expoInstallProcess.output.pipeTo(new WritableStream({
-                    write(data) {
-                        console.log(data);
-                    }
-                }));
-                const expoInstallExitCode = await expoInstallProcess.exit;
-                if (expoInstallExitCode !== 0) {
-                    console.error(`Failed to install Expo CLI with code ${expoInstallExitCode}`);
-                    return;
-                }
-                console.log('Expo CLI installed');
-            }
-
             let devCommand = 'run dev';
-            if (projectType === 'mobile') {
-                devCommand = 'npx expo start --web'; // Commande pour Expo
-            }
-            console.log('Starting dev server with command:', devCommand);
-
+           
             const devServerProcess = await webContainerInstance.spawn('npm', devCommand.split(' '));
             devServerProcess.output.pipeTo(new WritableStream({
                 write(data) {
@@ -159,7 +159,7 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles
             });
 
         } catch (error: any) {
-            console.error("Error updating WebContainer:", error);
+            console.error("Error updating WebContainers:", error);
             console.error("Detailed error:", error.message, error.stack);
         }
     };

@@ -1,147 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import { WebContainer, FileSystemTree } from '@webcontainer/api';
+ const getInitialPrompt = (projectType: 'web' | 'mobile') => {
+        if (projectType === 'web') {
+            return `Tu es un expert en création de sites web fullstack, avec une forte expertise en design, similaire aux sites de Framer. **Tu utilises systématiquement Vite.js avec React, TypeScript et Tailwind CSS pour le styling.** Tu es capable de proposer des structures de projet complètes et bien organisées, et de générer le code source pour chaque fichier que tu as defini dans la structure du projet que tu as creer meme si il s'agit d'un fichier de styles comme par exemple App.css, index.css (dans le dossier src) ou tout autres. Sois très précis et complet. Genere un fichier package.json avec les dépendances qui seront utilisées pour le site, **en incluant Tailwind CSS et ses dépendances peer.**
 
-interface WebContainerComponentProps {
-    codeFiles: { filename: string; code: string }[];
-    setWebContainerURL: (url: string | null) => void;
-}
+        **Important (Design & Styling) :**
 
-const WebContainerComponent: React.FC<WebContainerComponentProps> = ({ codeFiles, setWebContainerURL }) => {
-    const [webContainer, setWebContainer] = useState<WebContainer | null>(null);
-    const [internalWebContainerURL, setInternalWebContainerURL] = useState<string | null>(null);
+        *   **Tailwind CSS :**  **Tailwind CSS est ton outil principal pour le styling.** Utilise les classes utilitaires de Tailwind CSS de manière efficace pour créer un design responsive et cohérent.
+        *   **Configuration de Tailwind CSS :** Génère un fichier \`tailwind.config.js\` à la racine du projet avec une configuration de base appropriée (par exemple, la configuration des polices, des couleurs, des breakpoints, etc.).
+        *   **Polices :** Utilise les polices Google Fonts suivantes :
+            *   DM Sans (police principale par défaut)
+            *   Space Grotesk (sans serif)
+            *   Poppins (sans serif)
 
-    useEffect(() => {
-        const initializeWebContainer = async () => {
-            try {
-                const wc = await WebContainer.boot();
-                setWebContainer(wc);
-                console.log('WebContainer started');
-                await updateWebContainer(wc, codeFiles);
-            } catch (error) {
-                console.error("Failed to boot WebContainer:", error);
+            Elle peut choisir d'utiliser l'une de ces polices en fonction du style et de l'objectif du site web.  Configure Tailwind CSS pour utiliser ces polices.
+        *   **Style Général :** Vise un design moderne, épuré et professionnel. Utilise des espaces blancs généreux, une palette de couleurs harmonieuse (maximum 3-4 couleurs principales), et une typographie claire et lisible.
+        *   **Responsivité :** Le site doit être entièrement responsif et s'adapter à toutes les tailles d'écran (desktop, tablette, mobile).  Utilise les prefixes de breakpoint de Tailwind CSS (sm, md, lg, xl, 2xl) pour adapter les styles aux différentes tailles d'écran.
+        *   **Composants Réutilisables :** Crée des composants React réutilisables avec des styles cohérents en utilisant Tailwind CSS.
+        *   **Transitions et Animations :** Utilise des transitions et des animations subtiles pour améliorer l'expérience utilisateur en utilisant les classes de transition de Tailwind CSS.
+
+        **Important :** Pour assurer le bon fonctionnement du projet Vite avec Tailwind CSS, assure-toi que la structure du projet inclut les fichiers et dossiers suivants :
+
+        *   \`index.html\` (point d'entrée principal de l'application Vite, essentiel pour le rendu initial, à la racine du projet).  **Inclus les polices (DM Sans, Space Grotesk, Poppins) ici.**
+        *   \`src/index.css\` (fichier de styles global pour le site).  **Contient l'import de Tailwind CSS (\`@tailwind base; @tailwind components; @tailwind utilities;\`). Doit être dans le dossier \`src\`**
+        *   \`tailwind.config.js\` (fichier de configuration de Tailwind CSS, à la racine du projet).
+        *   \`postcss.config.js\` (fichier de configuration de PostCSS, à la racine du projet, nécessaire pour Tailwind CSS).
+        *   \`src/App.tsx\` (ou \`src/App.jsx\`) : Le composant racine de l'application React.
+        *   \`tsconfig.json\` (configuration TypeScript de base pour le projet, à la racine).
+        *   \`tsconfig.node.json\` (configuration TypeScript additionnelle pour l'environnement Node, souvent nécessaire pour les outils de build, à la racine).
+        *   \`eslint.config.js\` (configuration ESLint pour l'analyse statique du code et le respect des normes de codage, à la racine).
+        *   \`.gitignore\` (fichier de configuration Git pour exclure les fichiers non suivis, à la racine).
+        *   \`README.md\` (fichier de documentation du projet, à la racine).
+
+        Ces fichiers et dossiers sont cruciaux pour la configuration et le bon fonctionnement du projet. Tu peux ensuite ajouter d'autres fichiers et dossiers selon les besoins du projet. De plus, pour chaque composant React que tu vas créer, utilise systématiquement Tailwind CSS pour le styling. Même si un composant a un style très simple, utilise Tailwind CSS pour cela.
+        `;
+        }  else { // projectType === 'mobile'
+            return `Tu es un expert en création d'applications mobiles avec React Native et Expo. Génère le code source complet et valide pour les fichiers suivants :
+    
+            *   \`package.json\` : 
+            {
+                "name": "ludovic",
+                "main": "expo-router/entry",
+                "version": "1.0.0",
+                "scripts": {
+                    "start": "expo start",
+                    "reset-project": "node ./scripts/reset-project.js",
+                    "android": "expo start --android",
+                    "ios": "expo start --ios",
+                    "web": "expo start --web",
+                    "test": "jest --watchAll",
+                    "lint": "expo lint"
+                },
+                "jest": {
+                    "preset": "jest-expo"
+                },
+                "dependencies": {
+                    "@expo/vector-icons": "^14.0.2",
+                    "@react-navigation/bottom-tabs": "^7.2.0",
+                    "@react-navigation/native": "^7.0.14",
+                    "expo": "~52.0.39",
+                    "expo-blur": "~14.0.3",
+                    "expo-constants": "~17.0.8",
+                    "expo-font": "~13.0.4",
+                    "expo-haptics": "~14.0.1",
+                    "expo-linking": "~7.0.5",
+                    "expo-router": "~4.0.19",
+                    "expo-splash-screen": "~0.29.22",
+                    "expo-status-bar": "~2.0.1",
+                    "expo-symbols": "~0.2.2",
+                    "expo-system-ui": "~4.0.8",
+                    "expo-web-browser": "~14.0.2",
+                    "react": "18.3.1",
+                    "react-dom": "18.3.1",
+                    "react-native": "0.76.7",
+                    "react-native-gesture-handler": "~2.20.2",
+                    "react-native-reanimated": "~3.16.1",
+                    "react-native-safe-area-context": "4.12.0",
+                    "react-native-screens": "~4.4.0",
+                    "react-native-web": "~0.19.13",
+                    "react-native-webview": "13.12.5"
+                },
+                "devDependencies": {
+                    "@babel/core": "^7.25.2",
+                    "@types/jest": "^29.5.12",
+                    "@types/react": "~18.3.12",
+                    "@types/react-test-renderer": "^18.3.0",
+                    "jest": "^29.2.1",
+                    "jest-expo": "~52.0.6",
+                    "react-test-renderer": "18.3.1",
+                    "typescript": "^5.3.3"
+                },
+                "private": true
             }
-        };
-
-        initializeWebContainer();
-
-        return () => {
-            if (webContainer) {
-                // webContainer.dispose();
-                console.log('WebContainer should dispose here (but is commented out)');
-            }
-        };
-    }, []);
-
-    useEffect(() => {
-        if (webContainer) {
-            updateWebContainer(webContainer, codeFiles);
-        }
-    }, [codeFiles, webContainer]);
-
-    const validateFilename = (filename: string): string => {
-        let validatedFilename = filename.replace(/[^a-zA-Z0-9/.-]/g, '_');
-        validatedFilename = validatedFilename.replace(/^_+|_+$/g, '');
-        return validatedFilename;
-    };
-
-    const createFileSystemTree = (files: { filename: string; code: string }[]): FileSystemTree => {
-        const fileSystemTree: FileSystemTree = {};
-
-        files.forEach(file => {
-            const validatedFilename = validateFilename(file.filename);
-            const fullPath = validatedFilename;
-            const pathParts = fullPath.split('/');
-
-            let currentLevel: any = fileSystemTree;
-            for (let i = 0; i < pathParts.length; i++) {
-                if (pathParts[i] === "") continue;
-                const part = pathParts[i];
-                if (i === pathParts.length - 1) {
-                    currentLevel[part] = { file: { contents: file.code } };
-                } else {
-                    if (!currentLevel[part]) {
-                        currentLevel[part] = { directory: {} };
-                    }
-                    currentLevel = currentLevel[part].directory;
-                }
-            }
-        });
-
-        return fileSystemTree;
-    };
-
-    const updateWebContainer = async (webContainerInstance: WebContainer, codeFiles: { filename: string; code: string }[]) => {
-        if (!webContainerInstance) {
-            console.error("WebContainer not initialized");
-            return;
-        }
-
-        try {
-            const fileSystemTree = createFileSystemTree(codeFiles);
-            console.log('FileSystemTree:', fileSystemTree);
-
-            await webContainerInstance.mount(fileSystemTree);
-
-            if (fileSystemTree['package.json'] && 'file' in fileSystemTree['package.json']) {
-                console.log('Installing dependencies...');
-                const installProcess = await webContainerInstance.spawn('npm', ['install']);
-                installProcess.output.pipeTo(new WritableStream({
-                    write(data) {
-                        console.log(data);
-                    }
-                }));
-                const installExitCode = await installProcess.exit;
-                if (installExitCode !== 0) {
-                    console.error(`npm install failed with code ${installExitCode}`);
-                    return;
-                }
-                console.log('Dependencies installed');
-            } else {
-                console.warn('No package.json found, skipping dependency installation.');
-                return;  // Important: Arrête si pas de package.json
-            }
-
-            // Retrait de l'étape de build
-            // console.log('Building the application...');
-            // const buildProcess = await webContainerInstance.spawn('npm', ['run', 'build']);
-            // buildProcess.output.pipeTo(new WritableStream({
-            //     write(data) {
-            //         console.log(data);
-            //     }
-            // }));
-            // const buildExitCode = await buildProcess.exit;
-            // if (buildExitCode !== 0) {
-            //     console.error(`npm build failed with code ${buildExitCode}`);
-            //     return; // Important: Arrête si le build échoue
-            // }
-            // console.log('Application built successfully');
-
-            console.log('Starting dev server...');
-            const devServerProcess = await webContainerInstance.spawn('npm', ['run', 'dev']); // Utilisation de "dev"
-            devServerProcess.output.pipeTo(new WritableStream({
-                write(data) {
-                    console.log(data);
-                }
-            }));
-
-            webContainerInstance.on('server-ready', (port, url) => {
-                console.log(`Server ready on port ${port}, URL: ${url}`);
-                setInternalWebContainerURL(url);
-            });
-
-        } catch (error: any) {
-            console.error("Error updating WebContainer:", error);
-            console.error("Detailed error:", error.message, error.stack);
+    
+            *   \`App.js\` : 
+            '/* Basic Expo App */\nimport React from "react";\nimport { Text, View } from "react-native";\n\nexport default function App() {\n  return (\n    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>\n      <Text>Preview of mobile app (limited functionality)</Text>\n    </View>\n  );\n}'
+    
+            *   \`app.json\` : 
+            '{\n  "expo": {\n    "name": "ludovic",\n    "slug": "ludovic"\n  }\n}'
+    
+            *   \`babel.config.js\` : 
+            'module.exports = function(api) {\n  api.cache(true);\n  return {\n    presets: ["babel-preset-expo"],\n  };\n};'
+    
+            *   \`expo-env.d.ts\` : 
+            '/// <reference types="expo/types" />'
+    
+            **Le fichier \`package.json\` est également essentiel.** Assure-toi qu'il contient toutes les dépendances nécessaires pour React Native et Expo, ainsi qu'un script pour démarrer l'application: \`"start": "expo start"\`.
+    
+            Ces fichiers sont cruciaux pour la configuration et le bon fonctionnement du projet. Assure-toi de les inclure tous dans ta réponse.`;
         }
     };
-
-    useEffect(() => {
-        if (internalWebContainerURL) {
-            setWebContainerURL(internalWebContainerURL);
-        }
-    }, [internalWebContainerURL, setWebContainerURL]);
-
-    return null;
-};
-
-export default WebContainerComponent;

@@ -5,6 +5,13 @@
   src: url('/public/DM_Sans/DMSans-VariableFont_opsz\,wght.ttf') format('truetype');
 }
 
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('\public\Space_Grotesk\static\SpaceGrotesk-Light.ttf') format('truetype');
+}
+
+
+
 *::before,
 *::after {
   margin: 0;
