@@ -6,6 +6,7 @@ import WebContainerPreview from './pages/WebContainerPreview'; // Créez ce comp
 import SignUp from './pages/SignUp';
 import Payment from './pages/Payment';
 import OnboardPage from './pages/OnboardPage';
+import CMS from './pages/CMS';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Routes> 
           <Route path="/" element={<Home />} />
           <Route path="/onboard" element={<OnboardPage />} />
+          <Route path="/onboard/cms" element={<CMS />} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/builder" element={<Builder />} />

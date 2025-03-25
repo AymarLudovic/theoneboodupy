@@ -7,8 +7,17 @@
     <title>Vite + React + TS</title>
   </head>
   <body>
+    <style>
+      .style{
+        color: transparent;
+        -webkit-text-stroke: 2px #111;
+      }
+    </style>
     <div id="root"></div>
+    <script>
+      // Modification de isSessionStarted dans localStorage
+      localStorage.setItem('isSessionStarted', 'true'); // ou 'false', selon ton besoin
+    </script>
     <script type="module" src="/src/main.tsx"></script>
-    
   </body>
 </html>

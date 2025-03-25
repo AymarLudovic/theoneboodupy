@@ -11,7 +11,7 @@ client
 
 const databases = new Databases(client);
 
-const OnboardPage = () => {
+const CMS = () => {
     const [appName, setAppName] = useState<string>('');
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [userApps, setUserApps] = useState<any[]>([]);
@@ -127,13 +127,13 @@ const OnboardPage = () => {
         <div className='h-screen w-full bg-black overflow-hidden'>
          <div className='fixed flex border border-[#111]  bottom-5 left-[45%] px-2 py-2 backdrop-blur-3xl rounded-full fle items-center gap-3'>
             <a href="/onboard">
-            <svg width="2em" data-e2e="" height="2em" viewBox="0 0 48 48" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" clipRule="evenodd" d="M24.9505 7.84001C24.3975 7.38666 23.6014 7.38666 23.0485 7.84003L6.94846 21.04C6.45839 21.4418 6.2737 22.1083 6.48706 22.705C6.70041 23.3017 7.26576 23.7 7.89949 23.7H10.2311L11.4232 36.7278C11.5409 38.0149 12.6203 39 13.9128 39H21.5C22.0523 39 22.5 38.5523 22.5 38V28.3153C22.5 27.763 22.9477 27.3153 23.5 27.3153H24.5C25.0523 27.3153 25.5 27.763 25.5 28.3153V38C25.5 38.5523 25.9477 39 26.5 39H34.0874C35.3798 39 36.4592 38.0149 36.577 36.7278L37.7691 23.7H40.1001C40.7338 23.7 41.2992 23.3017 41.5125 22.705C41.7259 22.1082 41.5412 21.4418 41.0511 21.04L24.9505 7.84001Z"></path></svg>
+            <svg width="2em" data-e2e="" height="2em" viewBox="0 0 48 48" fill="#888" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" clipRule="evenodd" d="M24.9505 7.84001C24.3975 7.38666 23.6014 7.38666 23.0485 7.84003L6.94846 21.04C6.45839 21.4418 6.2737 22.1083 6.48706 22.705C6.70041 23.3017 7.26576 23.7 7.89949 23.7H10.2311L11.4232 36.7278C11.5409 38.0149 12.6203 39 13.9128 39H21.5C22.0523 39 22.5 38.5523 22.5 38V28.3153C22.5 27.763 22.9477 27.3153 23.5 27.3153H24.5C25.0523 27.3153 25.5 27.763 25.5 28.3153V38C25.5 38.5523 25.9477 39 26.5 39H34.0874C35.3798 39 36.4592 38.0149 36.577 36.7278L37.7691 23.7H40.1001C40.7338 23.7 41.2992 23.3017 41.5125 22.705C41.7259 22.1082 41.5412 21.4418 41.0511 21.04L24.9505 7.84001Z"></path></svg>
             </a>
             <button onClick={handleCreateAppClick}>
                 <GeminiIcon></GeminiIcon>
             </button>
-            <a href="/onboard/cms" className='px-1'>
-            <Globe width="1.5em" height="1.5em" color='gray'></Globe>
+            <a href="" className='px-1'>
+            <Globe width="1.5em" height="1.5em" color='white'></Globe>
             </a>
         </div>
             <nav className="w-full hidden top-0 sticky p-2 py-8 px-10  items-center justify-between">
@@ -167,14 +167,14 @@ const OnboardPage = () => {
 
             </nav>
              
-            {error && <div className="text-red-500 text-center">{error}</div>}
+            {error && <div className="text-red-500 sr-only text-center">{error}</div>}
             <section className="w-full h-full overflow-y-auto flex flex-col gap-5 ">
             <div className='p-9'>
-            <h1 className='text-4xl text-[#E4E4E4] font-semibold'>Mobile Apps</h1>
+            <h1 className='text-4xl text-[#E4E4E4] font-semibold'>CMS</h1>
             </div>
             <section className="w-full h-full  flex justify-center  items-center  flex-wrap" style={{gap: "44px 24px"}}>
             {userApps.map((app) => (
-    <div key={app.$id} className="flex flex-col gap-2">
+    <div key={app.$id} className="flex flex-col gap-2 sr-only">
         <div className='flex size-full bg-[#0A0A0A] md:h-[550px] md:w-[400px]'>
 
         </div>
@@ -195,6 +195,31 @@ const OnboardPage = () => {
         </a>
     </div>
 ))}
+            <div className="rounded-[12px] border p-1 border-[#222] w-[80%] h-auto">
+                <table className='border-collapse text-[#E4E4E4] w-full rounded-[12px]'>
+                    <thead className=' w-full rounded-[12px]'>
+                        <tr className='border-b border-[#222]'>
+                            <td className="p-2  font-semibold">Files</td>
+                            <td className="p-2  font-semibold">Types</td>
+                            <td className="p-2  font-semibold">URL</td>
+                            <td className="p-2  font-semibold">Created at</td>
+                        </tr>
+                    </thead>
+                    <tbody className="w-full">
+                     <tr className=''>
+                     <td className="p-2  font-semibold flex gap-2 items-center">
+                        <div className='h-[40px] w-[40px] rounded-[12px] border border-[#111]'>
+                        <img src="/icons/Netflix logo.png" className='h-full w-full object-cover rounded-[12px]' alt="" />
+                        </div>
+                        <p className="font-semibold">Netflix clone logo</p>
+                     </td>
+                            <td className="p-2  font-semibold">Types</td>
+                            <td className="p-2  font-semibold">URL</td>
+                            <td className="p-2  font-semibold">Created at</td>
+                     </tr>
+                    </tbody>
+                </table>
+            </div>
 
                 {/* Si aucune application n'est trouvée, afficher un message */}
                 {userApps.length === 0 && (
@@ -273,4 +298,4 @@ const OnboardPage = () => {
     );
 };
 
-export default OnboardPage;
+export default CMS;
