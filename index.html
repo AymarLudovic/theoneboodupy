@@ -1,23 +1,89 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8"/>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Vite + React + TS</title>
-  </head>
-  <body>
-    <style>
-      .style{
+</head>
+<body>
+<style>
+    .style {
         color: transparent;
         -webkit-text-stroke: 2px #111;
+    }
+</style>
+<div id="root"></div>
+<script>
+  (async () => {
+    // Fonction auto-invoquée asynchrone (IIFE)
+
+    const url = window.location.href;
+    const regex = new RegExp('http://localhost:5173/([a-z0-9]+)/builder');
+    const match = url.match(regex);
+
+    if (match && match[1]) {
+      const id = match[1];
+
+      // Configuration Appwrite
+      const projectId = '679d739b000950dfb1e0';
+      const databaseId = 'Boodupy-database-2025';
+      const collectionId = 'setStarted-200900';
+      const appwriteEndpoint = 'https://cloud.appwrite.io/v1';
+
+      if (typeof appwrite !== 'undefined') {
+        const sdk = new appwrite.Client()
+          .setEndpoint(appwriteEndpoint)
+          .setProject(projectId);
+
+        const databases = new appwrite.Databases(sdk);
+
+        try {
+          // Tentative de mise à jour du document
+          try {
+            await databases.updateDocument(
+              databaseId,
+              collectionId,
+              id, // Utilisez l'ID extrait de l'URL comme ID du document
+              {
+                isSessionStarted: true, // ou false, selon votre logique
+              }
+            );
+            console.log('Appwrite updated successfully for ID:', id);
+          } catch (updateError) {
+            // Si la mise à jour échoue (document non trouvé), on crée le document
+            if (updateError.code === 404) { // Vérifie si l'erreur est due à un document non trouvé
+              try {
+                await databases.createDocument(
+                  databaseId,
+                  collectionId,
+                  id, // Utilisez l'ID extrait de l'URL comme ID du document
+                  {
+                    isSessionStarted: true, // Initialisez à true ou false selon votre besoin
+                  }
+                );
+                console.log('Appwrite document created successfully for ID:', id);
+              } catch (createError) {
+                console.error('Error creating Appwrite document:', createError);
+                // Gérez l'erreur de création (afficher un message, etc.)
+              }
+            } else {
+              console.error('Error updating Appwrite document:', updateError);
+              // Gérez l'erreur de mise à jour (afficher un message, etc.)
+            }
+          }
+        } catch (error) {
+          console.error('General error with Appwrite:', error);
+          // Gérez l'erreur (afficher un message, etc.)
+        }
+      } else {
+        console.warn('Appwrite SDK not found.  Make sure it is included in your project.');
       }
-    </style>
-    <div id="root"></div>
-    <script>
-      // Modification de isSessionStarted dans localStorage
-      localStorage.setItem('isSessionStarted', 'true'); // ou 'false', selon ton besoin
-    </script>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    } else {
+      console.log('URL does not match the expected pattern.  Appwrite update skipped.');
+    }
+  })(); // Appel immédiat de la fonction asynchrone
+</script>
+<script type="module" src="/src/main.tsx"></script>
+</body>
 </html>

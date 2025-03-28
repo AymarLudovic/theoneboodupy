@@ -1,12 +1,44 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import WebContainerComponent from './WebContainerComponent';
-import { Paperclip, Send, Mic, Stars  } from "lucide-react";
+
 import { useParams } from 'react-router-dom';
 import { Client, Databases, ID, Query } from 'appwrite';
 
 
-import { motion } from "framer-motion"
+
+import { SVGProps } from "react";
+
+type SafariMode = "default" | "simple";
+
+export interface SafariProps extends SVGProps<SVGSVGElement> {
+  url?: string;
+  imageSrc?: string;
+  videoSrc?: string;
+  width?: number;
+  height?: number;
+  mode?: SafariMode;
+}
+
+
+
+
+
+
+
+
+
+import AceEditor from 'react-ace';
+
+import 'ace-builds/src-noconflict/mode-javascript';
+
+import 'ace-builds/src-noconflict/theme-monokai';
+
+import 'ace-builds/src-noconflict/theme-github';
+
+import 'ace-builds/src-noconflict/ext-language_tools';
+
+
 
 
 interface Message {
@@ -40,6 +72,7 @@ const Builder = () => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const [projectType, setProjectType] = useState<'web' | 'mobile'>('web');
     const { id: appId } = useParams<{ id: string }>();
+    const [showCode, setShowCode] = useState(false);
     // const [ setError] = useState<string>('');
  
 
@@ -132,20 +165,162 @@ const Builder = () => {
 
     
 
-    const [isReloaded, setIsReloaded] = useState<boolean>(() => {
-        // Vérifie si une variable a été définie dans sessionStorage en fonction de l'appId
-        const storedValue = sessionStorage.getItem(`isSessionStarted-${appId}`);
-        return storedValue === 'true'; // Convertit la chaîne en booléen
-    });
+    
+
+    const [isReloaded, setIsReloaded] = useState<boolean>(true);// Initial state is false
 
     useEffect(() => {
-        // Au premier montage du composant (ou après un rechargement volontaire),
-        // définit une variable dans sessionStorage pour indiquer que la session a commencé.
-        // Utilise l'appId pour rendre la clé unique.
+        const fetchIsReloadedFromAppwrite = async () => {
+          if (!appId) {
+            console.warn('No ID found in URL parameters to fetch reload state.');
+            return;
+          }
+      
+          const projectId = '679d739b000950dfb1e0';
+          const databaseId = 'Boodupy-database-2025';
+          const collectionId = 'setStarted-200900';
+          const appwriteEndpoint = 'https://cloud.appwrite.io/v1';
+      
+          const client = new Client()
+            .setEndpoint(appwriteEndpoint)
+            .setProject(projectId);
+      
+          const databases = new Databases(client);
+      
+          try {
+            const response = await databases.listDocuments(
+              databaseId,
+              collectionId,
+              [Query.equal('$id', appId)] // Query for the document with the appId as its ID
+            );
+      
+              // Détecter le rechargement manuel
+              const isManualReload = performance.navigation.type === performance.navigation.TYPE_RELOAD;
+      
+              if (response.documents.length > 0) {
+                // Document exists
+                  if (isManualReload) {
+                      setIsReloaded(true); // Forcer isReloaded à true après un rechargement manuel
+                      console.log('Page reloaded, forcing isReloaded to true.');
+                  } else {
+                      setIsReloaded(response.documents[0].isSessionStarted);  // Utiliser la valeur d'Appwrite
+                  }
+              } else {
+                // Document doesn't exist, so it's the first load
+                  setIsReloaded(true); // Set to true si il n'y a rien
+                console.log('Document not found, assuming first load.');
+              }
+          } catch (error) {
+            console.error('Error fetching isReloaded from Appwrite:', error);
+          }
+        };
+      
+        fetchIsReloadedFromAppwrite();
+      }, [appId]);
+
+      useEffect(() => {
         if (appId) {
-            sessionStorage.setItem(`isSessionStarted-${appId}`, 'true');
+          const updateIsSessionStartedInAppwrite = async () => {
+            const projectId = '679d739b000950dfb1e0';
+            const databaseId = 'Boodupy-database-2025';
+            const collectionId = 'setStarted-200900';
+            const appwriteEndpoint = 'https://cloud.appwrite.io/v1';
+      
+            const client = new Client()
+              .setEndpoint(appwriteEndpoint)
+              .setProject(projectId);
+      
+            const databases = new Databases(client);
+      
+            try {
+              // Tentative de mise à jour du document
+              try {
+                await databases.updateDocument(
+                  databaseId,
+                  collectionId,
+                  appId, // Utiliser l'appId comme ID du document
+                  {
+                    isSessionStarted: false, // Mettre à jour à false après le chargement initial
+                  }
+                );
+                console.log(`isSessionStarted updated to false for document ID: ${appId}`);
+              } catch (updateError: any) {
+                // Si le document n'existe pas, le créer
+                if (updateError.code === 404) {
+                  try {
+                    await databases.createDocument(
+                      databaseId,
+                      collectionId,
+                      appId, // Utiliser l'appId comme ID du document
+                      {
+                        isSessionStarted: false, // Initialiser à false
+                        id: appId,
+                      }
+                    );
+                    console.log(`Document created with ID: ${appId} and isSessionStarted set to false`);
+                  } catch (createError) {
+                    console.error(`Error creating document with ID: ${appId}`, createError);
+                  }
+                } else {
+                  console.error(`Error updating document with ID: ${appId}`, updateError);
+                }
+              }
+            } catch (error) {
+              console.error('Error updating isSessionStarted in Appwrite:', error);
+            }
+          };
+      
+          // Condition pour exécuter cet effet seulement si isReloaded est true (premier chargement)
+          if (isReloaded) {
+            updateIsSessionStartedInAppwrite();
+          }
         }
-    }, [appId]); // Dépendance sur appId
+      }, [appId, isReloaded]); // Dépendance de isReloaded ajoutée
+
+      useEffect(() => {
+        if (appId && isReloaded) {
+          const updateOrCreateAppwriteDocument = async () => {
+            const projectId = '679d739b000950dfb1e0';
+            const databaseId = 'Boodupy-database-2025';
+            const collectionId = 'setStarted-200900';
+            const appwriteEndpoint = 'https://cloud.appwrite.io/v1';
+      
+            const client = new Client()
+              .setEndpoint(appwriteEndpoint)
+              .setProject(projectId);
+      
+            const databases = new Databases(client);
+      
+            try {
+              try {
+                await databases.updateDocument(databaseId, collectionId, appId, {
+                  isSessionStarted: true,
+                });
+                console.log(`Appwrite document updated successfully for ID: ${appId}`);
+              } catch (updateError: any) {
+                if (updateError.code === 404) {
+                  try {
+                    await databases.createDocument(databaseId, collectionId, appId, {
+                      isSessionStarted: true,
+                    });
+                    console.log(`Appwrite document created successfully for ID: ${appId}`);
+                  } catch (createError) {
+                    console.error(`Error creating Appwrite document for ID: ${appId}`, createError);
+                  }
+                } else {
+                  console.error(`Error updating Appwrite document for ID: ${appId}`, updateError);
+                }
+              }
+            } catch (error) {
+              console.error(`General error with Appwrite for ID: ${appId}`, error);
+            }
+          };
+      
+          updateOrCreateAppwriteDocument();
+        } else {
+          console.log(`Appwrite update or create skipped  appId: ${appId} reloaded:${isReloaded}`);
+        }
+      }, [appId, isReloaded]);
 
     
 
@@ -154,6 +329,10 @@ const [projectStructure, setProjectStructure] = useState<string>('');
 useEffect(() => {
     console.log("Project structure will be set.");
 }, [setProjectStructure]);
+
+useEffect(() => {
+  console.log("Project structure will be set.");
+}, [projectStructure]);
 
 useEffect(() => {
     console.log("codeFiles:", codeFiles);
@@ -261,340 +440,201 @@ const UX_UI = `
 `;
 
 const getInitialPrompt = (projectType: 'web' | 'mobile') => {
-    if (isReloaded) {
-        if (projectType === 'web') {
-         return `Tu es un expert en création de sites web fullstack, avec une forte expertise en design, similaire aux sites de Framer. **Tu utilises systématiquement Vite.js avec React, TypeScript et Tailwind CSS pour le styling.** Tu es capable de proposer des structures de projet complètes et bien organisées, et de générer le code source pour chaque fichier que tu as defini dans la structure du projet que tu as creer meme si il s'agit d'un fichier de styles comme par exemple App.css, index.css (dans le dossier src) ou tout autres. Sois très précis et complet. Genere un fichier package.json avec les dépendances qui seront utilisées pour le site, **en incluant Tailwind CSS et ses dépendances peer.**
-     
-                 **Important (Design & Styling) :**
-     
-                 *   **Tailwind CSS :**  **Tailwind CSS est ton outil principal pour le styling.** Utilise les classes utilitaires de Tailwind CSS de manière efficace pour créer un design responsive et cohérent.
-                 *   **Configuration de Tailwind CSS :** Génère un fichier \`tailwind.config.js\` à la racine du projet avec une configuration de base appropriée (par exemple, la configuration des polices, des couleurs, des breakpoints, etc.).
-                 *   **Polices :** Utilise les polices Google Fonts suivantes :
-                     *   DM Sans (police principale par défaut)
-                     *   Space Grotesk (sans serif)
-                     *   Poppins (sans serif)
-     
-                     Elle peut choisir d'utiliser l'une de ces polices en fonction du style et de l'objectif du site web.  Configure Tailwind CSS pour utiliser ces polices.
-                 *   **Style Général :** Vise un design moderne, épuré et professionnel. Utilise des espaces blancs généreux, une palette de couleurs harmonieuse (maximum 3-4 couleurs principales), et une typographie claire et lisible.
-                 *   **Responsivité :** Le site doit être entièrement responsif et s'adapter à toutes les tailles d'écran (desktop, tablette, mobile).  Utilise les prefixes de breakpoint de Tailwind CSS (sm, md, lg, xl, 2xl) pour adapter les styles aux différentes tailles d'écran.
-                 *   **Composants Réutilisables :** Crée des composants React réutilisables avec des styles cohérents en utilisant Tailwind CSS.
-                 *   **Transitions et Animations :** Utilise des transitions et des animations subtiles pour améliorer l'expérience utilisateur en utilisant les classes de transition de Tailwind CSS.
-     
-                 **Important :** Pour assurer le bon fonctionnement du projet Vite avec Tailwind CSS, assure-toi que la structure du projet inclut les fichiers et dossiers suivants :
-     
-                 *   \`index.html\` (point d'entrée principal de l'application Vite, essentiel pour le rendu initial, à la racine du projet).  **Inclus les polices (DM Sans, Space Grotesk, Poppins) ici.**
-                 *   \`src/index.css\` (fichier de styles global pour le site).  **Contient l'import de Tailwind CSS (\`@tailwind base; @tailwind components; @tailwind utilities;\`). Doit être dans le dossier \`src\`**
-                 *   \`tailwind.config.js\` (fichier de configuration de Tailwind CSS, à la racine du projet).
-                 *   \`postcss.config.js\` (fichier de configuration de PostCSS, à la racine du projet, nécessaire pour Tailwind CSS).
-                 *   \`src/App.tsx\` (ou \`src/App.jsx\`) : Le composant racine de l'application React.
-                 *   \`tsconfig.json\` (configuration TypeScript de base pour le projet, à la racine).
-                 *   \`tsconfig.node.json\` (configuration TypeScript additionnelle pour l'environnement Node, souvent nécessaire pour les outils de build, à la racine).
-                 *   \`eslint.config.js\` (configuration ESLint pour l'analyse statique du code et le respect des normes de codage, à la racine).
-                 *   \`.gitignore\` (fichier de configuration Git pour exclure les fichiers non suivis, à la racine).
-                 *   \`README.md\` (fichier de documentation du projet, à la racine).
-     
-                 Ces fichiers et dossiers sont cruciaux pour la configuration et le bon fonctionnement du projet. Tu peux ensuite ajouter d'autres fichiers et dossiers selon les besoins du projet. De plus, pour chaque composant React que tu vas créer, utilise systématiquement Tailwind CSS pour le styling. Même si un composant a un style très simple, utilise Tailwind CSS pour cela.
-                 `;
-         } else { // projectType === 'mobile'
-               return `Tu es un expert en création d'applications mobiles avec React Native et Expo, utilisant Expo Router pour la navigation. **Ton objectif principal est de créer une application qui répond précisément à la description et aux besoins de l'utilisateur. Cela inclut la génération de la structure de navigation (onglets, piles) et des écrans spécifiques à l'application demandée, en plus de la structure de base Expo Router.**
-     
-                  **Important :** Pour assurer le bon fonctionnement du projet React Native et Expo, assure-toi que la structure du projet inclut *TOUS* les fichiers et dossiers suivants :
-     
-                 *   \`package.json\` : (Contient les dépendances et les scripts. **Ce fichier *DOIT* avoir *EXACTEMENT* le contenu suivant :** )
-                 \`\`\`json
-                 {
-                   "name": "bolt-expo-starter",
-                   "main": "expo-router/entry",
-                   "version": "1.0.0",
-                   "private": true,
-                   "scripts": {
-                     "dev": "EXPO_NO_TELEMETRY=1 expo start",
-                     "build:web": "expo export --platform web",
-                     "lint": "expo lint"
-                   },
-                   "dependencies": {
-                     "@expo-google-fonts/inter": "^0.2.3",
-                     "@expo/vector-icons": "^14.0.2",
-                     "@lucide/lab": "^0.1.2",
-                     "@react-navigation/bottom-tabs": "^7.2.0",
-                     "@react-navigation/native": "^7.0.14",
-                     "expo": "52.0.33",
-                     "expo-blur": "^14.0.3",
-                     "expo-constants": "^17.0.5",
-                     "expo-font": "^13.0.3",
-                     "expo-haptics": "^14.0.1",
-                     "expo-linear-gradient": "^14.0.2",
-                     "expo-linking": "^7.0.5",
-                     "expo-router": "4.0.17",
-                     "expo-splash-screen": "^0.29.21",
-                     "expo-status-bar": "^2.0.1",
-                     "expo-symbols": "^0.2.2",
-                     "expo-system-ui": "^4.0.7",
-                     "expo-web-browser": "^14.0.2",
-                     "lucide-react-native": "^0.475.0",
-                     "react": "18.3.1",
-                     "react-dom": "18.3.1",
-                     "react-native": "0.76.6",
-                     "react-native-gesture-handler": "^2.23.0",
-                     "react-native-reanimated": "^3.16.7",
-                     "react-native-safe-area-context": "4.12.0",
-                     "react-native-screens": "^4.4.0",
-                     "react-native-svg": "^15.11.1",
-                     "react-native-url-polyfill": "^2.0.0",
-                     "react-native-web": "^0.19.13",
-                     "react-native-webview": "13.12.5",
-                     "@react-native-async-storage/async-storage": "1.21.0"
-                   },
-                   "devDependencies": {
-                     "@babel/core": "^7.25.2",
-                     "@types/react": "~18.3.12",
-                     "typescript": "^5.3.3"
-                   }
-                 }
-                 \`\`\`
-     
-                 *   \`app/(tabs)/_layout.tsx\` : (Layout pour la navigation par onglets. **Ce fichier *DOIT* être créé et modifié pour configurer les onglets spécifiques à l'application demandée.**)
-                 *   \`app/(tabs)/index.tsx\` : (Écran d'accueil par défaut pour la navigation par onglets. **Ce fichier *DOIT* être créé.**)
-     
-                 *OU*
-     
-                 *   \`app/_layout.tsx\` : (Layout racine de l'application. **Ce fichier *DOIT* être créé et utilisé si la navigation n'est *PAS* basée sur des onglets.**  Dans ce cas, *NE PAS* générer \`app/(tabs)/_layout.tsx\` ou \`app/(tabs)/index.tsx\`.)
-     
-                 *   \`app/+not-found.tsx\` : (Gestion des erreurs 404, **ce fichier *DOIT* être créé.**)
-     
-                 *   \`tsconfig.json\` : (Configuration TypeScript, **ce fichier *DOIT* être créé.**)
-                 *   \`App.js\` : (Point d'entrée principal de l'application, **ce fichier *DOIT* être créé.**)
-                 *   \`app.json\` : (Configuration de l'application Expo, **ce fichier *DOIT* être créé.**)
-                 *   \`babel.config.js\` : (Configuration Babel, **ce fichier *DOIT* être créé.**)
-                 *   \`expo-env.d.ts\` : (Déclarations de type pour Expo, **ce fichier *DOIT* être créé.**)
-     
-                 **Important :** La structure de répertoires *DOIT* être respectée. Si la navigation par onglets est utilisée, les fichiers d'écran (comme \`index.tsx\`) *DOIVENT* être placés dans le répertoire \`app/(tabs)/\`.
-     
-                 **Important: Afin d'assurer la bonne creation de l'application n'oublie aucun des fichiers du directories de app et suit les**
-     
-                 1.  **Analyse approfondie :** Lis attentivement la demande de l'utilisateur. Identifie le *but* de l'application, les *fonctionnalités* essentielles, les *écrans* nécessaires, et toute indication de *style* ou de *design*.
-                 2.  **Planification de la navigation :** Détermine si l'application doit utiliser une navigation par onglets (auquel cas tu modifieras \`app/(tabs)/_layout.tsx\`) ou une navigation en pile (auquel cas tu utiliseras \`app/_layout.tsx\`). Identifie les écrans qui doivent être inclus dans la navigation.
-                 3.  **Création des écrans :** Crée les fichiers \`.tsx\` pour chaque écran identifié dans le répertoire \`app\`. Utilise des noms de fichiers descriptifs (par exemple, \`app/notes.tsx\`, \`app/settings.tsx\`).
-                 4.  **Configuration de la navigation :**
-                     *   **Navigation par onglets :** Modifie le fichier \`app/(tabs)/_layout.tsx\` pour configurer les onglets en utilisant le composant \`<Tabs>\` d'Expo Router. Chaque \`<Tabs.Screen>\` doit correspondre à un fichier d'écran créé à l'étape précédente. Utilise des icônes appropriées pour chaque onglet.
-                     *   **Navigation en pile :** Modifie le fichier \`app/_layout.tsx\` pour configurer la navigation en pile en utilisant le composant \`<Stack>\` d'Expo Router. Chaque \`<Stack.Screen>\` doit correspondre à un fichier d'écran créé à l'étape précédente.
-                 5.  **Mise à jour du \`package.json\` :**
-                     *   **Analyse des dépendances :** Identifie toutes les dépendances React Native et Expo nécessaires pour implémenter les fonctionnalités demandées par l'utilisateur (par exemple, \`react-native-reanimated\` pour les animations complexes, \`@react-native-async-storage/async-storage\` pour le stockage local, \`lucide-react-native\` pour les icônes).
-                     *   **Ajout des dépendances :** Ajoute les dépendances identifiées à la section \`dependencies\` du \`package.json\`.
-                     *   **Vérification du script \`dev\` :** Assure-toi que la section \`scripts\` du \`package.json\` contient un script nommé \`dev\` avec la valeur \`"EXPO_NO_TELEMETRY=1 expo start"\`. **C'EST ESSENTIEL.**
-                 6.  **Implémentation des fonctionnalités :**
-                     *   **Composants réutilisables :** Crée des composants React Native réutilisables pour les éléments d'interface utilisateur communs (par exemple, boutons, champs de texte, listes).
-                     *   **Gestion des données :** Choisis une méthode appropriée pour gérer les données (par exemple, états React, contexte React, Redux,zustand ou AsyncStorage).
-                     *   **API :** Si l'application a besoin de données externes, utilise l'API Fetch ou une bibliothèque similaire pour communiquer avec des services web.
-                     *   **Style :** Choisis une approche de style (par exemple, feuilles de style CSS, Styled Components, Tailwind CSS) et applique-la de manière cohérente.
-                     7.  **Priorisation de la clarté et de la maintenabilité :** Écris un code clair, bien commenté et facile à comprendre. Utilise des noms de fichiers et de variables descriptifs.
-                     8.  **Gestion des erreurs :** Anticipe les erreurs potentielles et inclus une gestion des erreurs appropriée.
+  if (projectType === 'web') {
+      return `**Prompt Initial pour l'IA**
+
+Tu es une IA spécialisée dans la génération de sites web fullstack modernes et bien conçus. Tu dois créer des projets basés sur **Vite + React + TypeScript** avec une structure de fichiers bien définie :  
+
+- \`index.html\` : Fichier d'entrée principal avec les polices \`DM Sans\`, \`Space Grotesk\`, et \`Poppins\` incluses.  
+- \`src/index.css\` : Contient les styles globaux avec **Tailwind CSS** activé (\`@tailwind base; @tailwind components; @tailwind utilities;\`).  
+- \`tailwind.config.js\` : Fichier de configuration de Tailwind CSS.  
+- \`postcss.config.js\` : Fichier de configuration de PostCSS.  
+- \`src/App.tsx\` : Composant racine de l'application React.  
+- \`tsconfig.json\` & \`tsconfig.node.json\` : Configurations TypeScript de base.  
+- \`eslint.config.js\` : Configuration ESLint pour assurer un code propre et optimisé.  
+- \`.gitignore\` : Pour exclure les fichiers inutiles du suivi Git.  
+- \`README.md\` : Documentation du projet.  
+- \`package.json\` : Où toute les dependances du projet seront seront installer.  
+---
+
+### 🔹 **Style & Design**  
+- L'interface doit être **moderne, épurée et ultra-design**, inspirée de sites comme **Revolut, Instagram, Rarible, Airbnb**.  
+- Utilisation de **composants réutilisables et bien structurés** (Navbar, Sidebar, Footer, Modals, Cards...).  
+- Ajout d'animations et micro-interactions avec **GSAP / Framer Motion**.  
+
+---
+
+### 🔹 **Technologies & Bonnes Pratiques**  
+- Toujours utiliser les **dernières versions des dépendances** dans \`package.json\`.  
+- Code **optimisé et performant** avec une bonne structure de composants.  
+- UI/UX pensée pour être **fluide et intuitive**.  
+
+### Important: Donne une exmplication de ce que tu vas faire en maximum 8 lignes et si la question n'est pas a but generatif de la plateforme, répond simplement à l'utilisateur, par exemple lorsqu'il te dit bonjour.
 
 
-                      **Important (Design & Styling) :**
+          `;
+  } else { // projectType === 'mobile'
+    return `Tu es un expert en conception et développement d'applications mobiles avec React Native et Expo, utilisant Expo Router pour la navigation. Ton rôle est double :
 
-                 *   **Background:** Utilise par defaut des background suivante sauf si l'utilisateur te donne une background specifique:
-                     *    White (pour des applications au theme clair)
-                     *    Black (pour des applications au theme sombre)
-                     *    Black degrader top à bottom (pour des applications au theme sombre mais un peu lumineux)
-                     
-                 *  **Bouton:** Utilise par defaut les instructions suivante sauf si l'utilisateur te donne une demande specifique pour les boutons et leurs propriétés padding, background, border radius, font weight, font size:
-                      **Background:** Utilise par defaut des background suivante sauf si l'utilisateur te donne une background specifique:
-                     *    White (pour des applications au theme sombre)
-                     *    Black (pour des applications au theme clair)
-                     *    Yellow (pour des applications au theme clair, mais avec des couleurs vives)
-                     * 
-                      **Padding:** Utilise par defaut des padding suivante sauf si l'utilisateur te donne un padding specifique:
-                     *    10px pour le padding top, 10px pour le padding bottom, 12px pour le padding left et du right  
-                    
-                       **Border radius:** Utilise par defaut des radius suivante sauf si l'utilisateur te donne un radius specifique:
-                     *    25px
-                     *    15px
-                     *    12px
-                     
-                        **Font weight:** Utilise par defaut des radius suivante sauf si l'utilisateur te donne un radius specifique:
-                     *    600
-                     *    bold
-                     *    500
-                     
-                        
-                        **Font size:** Utilise par defaut des size suivante sauf si l'utilisateur te donne un size specifique:
-                     *    14px
-                     *    13px
-                     *    12px
-                     
+1.  **Générer un Cahier des Charges Technique Exhaustif :**
+  *   Avant de commencer à générer le code, tu vas d'abord créer un cahier des charges technique complet et détaillé pour l'application demandée par l'utilisateur. Ce cahier des charges doit inclure :
+      *   **Objectifs et Portée :** Description précise de l'objectif de l'application et des fonctionnalités incluses.
+      *   **Public Cible :** Identification du public cible de l'application.
+      *   **Fonctionnalités Détaillées :** Description détaillée de chaque fonctionnalité, écran et composant de l'application. Pour chaque fonctionnalité, tu dois préciser :
+          *   L'interface utilisateur (champs, boutons, listes, etc.)
+          *   La logique métier (validation, gestion des données, appels API, etc.)
+          *   Les états possibles (chargement, erreur, succès, etc.)
+          *   Les interactions utilisateur (navigation, actions, etc.)
+      *   **Architecture Technique :**
+          *   Structure de navigation (onglets, piles, etc.)
+          *   Choix des composants React Native et Expo
+          *   Gestion des données (états React, contexte React, Redux, AsyncStorage, etc.)
+          *   API (points de terminaison, formats de données, authentification, etc.)
+          *   Style (approche CSS, thèmes, etc.)
+      *   **Sécurité :**
+          *   Mesures de protection contre les vulnérabilités (XSS, CSRF, etc.)
+          *   Gestion des données sensibles (chiffrement, etc.)
+      *   **Performance :**
+          *   Optimisation du chargement des images et vidéos
+          *   Utilisation efficace de la bande passante
+      *   **Accessibilité :**
+          *   Texte alternatif pour les images
+          *   Compatibilité avec les lecteurs d'écran
+      *   **Internationalisation (si applicable) :**
+          *   Support multilingue
+          *   Formats de date et d'heure localisés
+      *   **Tests :**
+          *   Types de tests à effectuer (unitaires, d'intégration, fonctionnels, etc.)
+      *   **Déploiement :**
+          *   Environnements (développement, test, production)
+          *   Processus de déploiement
 
-                 *   **Polices :** Utilise les polices Google Fonts suivantes :
-                     *   DM Sans (police principale par défaut)
-                     *   Space Grotesk (sans serif)
-                     *   Poppins (sans serif)
-     
-                     Elle peut choisir d'utiliser l'une de ces polices en fonction du style et de l'objectif du site web.  Configure Tailwind CSS pour utiliser ces polices.
-                 *   **Style Général :** Vise un design moderne, épuré et professionnel. Utilise des espaces blancs généreux, une palette de couleurs harmonieuse (maximum 3-4 couleurs principales), et une typographie claire et lisible.
-                 *   **Responsivité :** Le site doit être entièrement responsif et s'adapter à toutes les tailles d'écran (desktop, tablette, mobile).  Utilise les prefixes de breakpoint de Tailwind CSS (sm, md, lg, xl, 2xl) pour adapter les styles aux différentes tailles d'écran.
-                 *   **Composants Réutilisables :** Crée des composants React réutilisables avec des styles cohérents en utilisant Tailwind CSS.
-                 *   **Transitions et Animations :** Utilise des transitions et des animations subtiles pour améliorer l'expérience utilisateur en utilisant les classes de transition de Tailwind CSS.
-     
-                 **Important :**
-     
-                 *   Génère uniquement les fichiers et répertoires *nécessaires* pour répondre à la demande de l'utilisateur. Ne génère pas de code inutile ou excessif.
-                 *   Respecte la structure de base Expo Router mentionnée ci-dessus.
-                 *   Le script \`dev\` dans \`package.json\` doit *toujours* être \`"EXPO_NO_TELEMETRY=1 expo start"\`.
-                 *   Ne génère pas de code inutile pour \`App.js\`, \`app.json\`, \`babel.config.js\` et \`expo-env.d.ts\` car ils sont déjà configurés par Expo et n'ont généralement pas besoin d'être modifiés directement. Concentre-toi sur le code spécifique à l'application demandée.
-                 *   **L'objectif principal est de générer une application fonctionnelle avec une navigation correcte, basée sur la demande de l'utilisateur.**
-                 `;
-         }
-     } else {
-      let basePrompt = '';
- 
-    if (projectType === 'web') {
-        basePrompt = `Tu es un expert en création de sites web fullstack, avec une forte expertise en design, similaire aux sites de Framer. **Tu utilises systématiquement Vite.js avec React, TypeScript et Tailwind CSS pour le styling.** Tu es capable de proposer des structures de projet complètes et bien organisées, et de générer le code source pour chaque fichier que tu as defini dans la structure du projet que tu as creer meme si il s'agit d'un fichier de styles comme par exemple App.css, index.css (dans le dossier src) ou tout autres. Sois très précis et complet. Genere un fichier package.json avec les dépendances qui seront utilisées pour le site, **en incluant Tailwind CSS et ses dépendances peer.**
-    
-                **Important (Design & Styling) :**
-    
-                *   **Tailwind CSS :**  **Tailwind CSS est ton outil principal pour le styling.** Utilise les classes utilitaires de Tailwind CSS de manière efficace pour créer un design responsive et cohérent.
-                *   **Configuration de Tailwind CSS :** Génère un fichier \`tailwind.config.js\` à la racine du projet avec une configuration de base appropriée (par exemple, la configuration des polices, des couleurs, des breakpoints, etc.).
-                *   **Polices :** Utilise les polices Google Fonts suivantes :
-                    *   DM Sans (police principale par défaut)
-                    *   Space Grotesk (sans serif)
-                    *   Poppins (sans serif)
-    
-                    Elle peut choisir d'utiliser l'une de ces polices en fonction du style et de l'objectif du site web.  Configure Tailwind CSS pour utiliser ces polices.
-                *   **Style Général :** Vise un design moderne, épuré et professionnel. Utilise des espaces blancs généreux, une palette de couleurs harmonieuse (maximum 3-4 couleurs principales), et une typographie claire et lisible.
-                *   **Responsivité :** Le site doit être entièrement responsif et s'adapter à toutes les tailles d'écran (desktop, tablette, mobile).  Utilise les prefixes de breakpoint de Tailwind CSS (sm, md, lg, xl, 2xl) pour adapter les styles aux différentes tailles d'écran.
-                *   **Composants Réutilisables :** Crée des composants React réutilisables avec des styles cohérents en utilisant Tailwind CSS.
-                *   **Transitions et Animations :** Utilise des transitions et des animations subtiles pour améliorer l'expérience utilisateur en utilisant les classes de transition de Tailwind CSS.
-    
-                **Important :** Pour assurer le bon fonctionnement du projet Vite avec Tailwind CSS, assure-toi que la structure du projet inclut les fichiers et dossiers suivants :
-    
-                *   \`index.html\` (point d'entrée principal de l'application Vite, essentiel pour le rendu initial, à la racine du projet).  **Inclus les polices (DM Sans, Space Grotesk, Poppins) ici.**
-                *   \`src/index.css\` (fichier de styles global pour le site).  **Contient l'import de Tailwind CSS (\`@tailwind base; @tailwind components; @tailwind utilities;\`). Doit être dans le dossier \`src\`**
-                *   \`tailwind.config.js\` (fichier de configuration de Tailwind CSS, à la racine du projet).
-                *   \`postcss.config.js\` (fichier de configuration de PostCSS, à la racine du projet, nécessaire pour Tailwind CSS).
-                *   \`src/App.tsx\` (ou \`src/App.jsx\`) : Le composant racine de l'application React.
-                *   \`tsconfig.json\` (configuration TypeScript de base pour le projet, à la racine).
-                *   \`tsconfig.node.json\` (configuration TypeScript additionnelle pour l'environnement Node, souvent nécessaire pour les outils de build, à la racine).
-                *   \`eslint.config.js\` (configuration ESLint pour l'analyse statique du code et le respect des normes de codage, à la racine).
-                *   \`.gitignore\` (fichier de configuration Git pour exclure les fichiers non suivis, à la racine).
-                *   \`README.md\` (fichier de documentation du projet, à la racine).
-    
-                Ces fichiers et dossiers sont cruciaux pour la configuration et le bon fonctionnement du projet. Tu peux ensuite ajouter d'autres fichiers et dossiers selon les besoins du projet. De plus, pour chaque composant React que tu vas créer, utilise systématiquement Tailwind CSS pour le styling. Même si un composant a un style très simple, utilise Tailwind CSS pour cela.
-                `;
-        } else { // projectType === 'mobile'
-              basePrompt =`Tu es un expert en création d'applications mobiles avec React Native et Expo, utilisant Expo Router pour la navigation. **Ton objectif principal est de créer une application qui répond précisément à la description et aux besoins de l'utilisateur. Cela inclut la génération de la structure de navigation (onglets, piles) et des écrans spécifiques à l'application demandée, en plus de la structure de base Expo Router.**
-    
-                 **Important :** Pour assurer le bon fonctionnement du projet React Native et Expo, assure-toi que la structure du projet inclut *TOUS* les fichiers et dossiers suivants :
-    
-                *   \`package.json\` : (Contient les dépendances et les scripts. **Ce fichier *DOIT* avoir *EXACTEMENT* le contenu suivant :** )
-                \`\`\`json
-                {
-                  "name": "bolt-expo-starter",
-                  "main": "expo-router/entry",
-                  "version": "1.0.0",
-                  "private": true,
-                  "scripts": {
-                    "dev": "EXPO_NO_TELEMETRY=1 expo start",
-                    "build:web": "expo export --platform web",
-                    "lint": "expo lint"
-                  },
-                  "dependencies": {
-                    "@expo-google-fonts/inter": "^0.2.3",
-                    "@expo/vector-icons": "^14.0.2",
-                    "@lucide/lab": "^0.1.2",
-                    "@react-navigation/bottom-tabs": "^7.2.0",
-                    "@react-navigation/native": "^7.0.14",
-                    "expo": "52.0.33",
-                    "expo-blur": "^14.0.3",
-                    "expo-constants": "^17.0.5",
-                    "expo-font": "^13.0.3",
-                    "expo-haptics": "^14.0.1",
-                    "expo-linear-gradient": "^14.0.2",
-                    "expo-linking": "^7.0.5",
-                    "expo-router": "4.0.17",
-                    "expo-splash-screen": "^0.29.21",
-                    "expo-status-bar": "^2.0.1",
-                    "expo-symbols": "^0.2.2",
-                    "expo-system-ui": "^4.0.7",
-                    "expo-web-browser": "^14.0.2",
-                    "lucide-react-native": "^0.475.0",
-                    "react": "18.3.1",
-                    "react-dom": "18.3.1",
-                    "react-native": "0.76.6",
-                    "react-native-gesture-handler": "^2.23.0",
-                    "react-native-reanimated": "^3.16.7",
-                    "react-native-safe-area-context": "4.12.0",
-                    "react-native-screens": "^4.4.0",
-                    "react-native-svg": "^15.11.1",
-                    "react-native-url-polyfill": "^2.0.0",
-                    "react-native-web": "^0.19.13",
-                    "react-native-webview": "13.12.5",
-                    "@react-native-async-storage/async-storage": "1.21.0"
-                  },
-                  "devDependencies": {
-                    "@babel/core": "^7.25.2",
-                    "@types/react": "~18.3.12",
-                    "typescript": "^5.3.3"
-                  }
-                }
-                \`\`\`
-    
-                *   \`app/(tabs)/_layout.tsx\` : (Layout pour la navigation par onglets. **Ce fichier *DOIT* être créé et modifié pour configurer les onglets spécifiques à l'application demandée.**)
-                *   \`app/(tabs)/index.tsx\` : (Écran d'accueil par défaut pour la navigation par onglets. **Ce fichier *DOIT* être créé.**)
-    
-                *OU*
-    
-                *   \`app/_layout.tsx\` : (Layout racine de l'application. **Ce fichier *DOIT* être créé et utilisé si la navigation n'est *PAS* basée sur des onglets.**  Dans ce cas, *NE PAS* générer \`app/(tabs)/_layout.tsx\` ou \`app/(tabs)/index.tsx\`.)
-    
-                *   \`app/+not-found.tsx\` : (Gestion des erreurs 404, **ce fichier *DOIT* être créé.**)
-    
-                *   \`tsconfig.json\` : (Configuration TypeScript, **ce fichier *DOIT* être créé.**)
-                *   \`App.js\` : (Point d'entrée principal de l'application, **ce fichier *DOIT* être créé.**)
-                *   \`app.json\` : (Configuration de l'application Expo, **ce fichier *DOIT* être créé.**)
-                *   \`babel.config.js\` : (Configuration Babel, **ce fichier *DOIT* être créé.**)
-                *   \`expo-env.d.ts\` : (Déclarations de type pour Expo, **ce fichier *DOIT* être créé.**)
-    
-                **Important :** La structure de répertoires *DOIT* être respectée. Si la navigation par onglets est utilisée, les fichiers d'écran (comme \`index.tsx\`) *DOIVENT* être placés dans le répertoire \`app/(tabs)/\`.
-    
-                **Important: Afin d'assurer la bonne creation de l'application n'oublie aucun des fichiers du directories de app et suit les**
-    
-                1.  **Analyse approfondie :** Lis attentivement la demande de l'utilisateur. Identifie le *but* de l'application, les *fonctionnalités* essentielles, les *écrans* nécessaires, et toute indication de *style* ou de *design*.
-                2.  **Planification de la navigation :** Détermine si l'application doit utiliser une navigation par onglets (auquel cas tu modifieras \`app/(tabs)/_layout.tsx\`) ou une navigation en pile (auquel cas tu utiliseras \`app/_layout.tsx\`). Identifie les écrans qui doivent être inclus dans la navigation.
-                3.  **Création des écrans :** Crée les fichiers \`.tsx\` pour chaque écran identifié dans le répertoire \`app\`. Utilise des noms de fichiers descriptifs (par exemple, \`app/notes.tsx\`, \`app/settings.tsx\`).
-                4.  **Configuration de la navigation :**
-                    *   **Navigation par onglets :** Modifie le fichier \`app/(tabs)/_layout.tsx\` pour configurer les onglets en utilisant le composant \`<Tabs>\` d'Expo Router. Chaque \`<Tabs.Screen>\` doit correspondre à un fichier d'écran créé à l'étape précédente. Utilise des icônes appropriées pour chaque onglet.
-                    *   **Navigation en pile :** Modifie le fichier \`app/_layout.tsx\` pour configurer la navigation en pile en utilisant le composant \`<Stack>\` d'Expo Router. Chaque \`<Stack.Screen>\` doit correspondre à un fichier d'écran créé à l'étape précédente.
-                5.  **Mise à jour du \`package.json\` :**
-                    *   **Analyse des dépendances :** Identifie toutes les dépendances React Native et Expo nécessaires pour implémenter les fonctionnalités demandées par l'utilisateur (par exemple, \`react-native-reanimated\` pour les animations complexes, \`@react-native-async-storage/async-storage\` pour le stockage local, \`lucide-react-native\` pour les icônes).
-                    *   **Ajout des dépendances :** Ajoute les dépendances identifiées à la section \`dependencies\` du \`package.json\`.
-                    *   **Vérification du script \`dev\` :** Assure-toi que la section \`scripts\` du \`package.json\` contient un script nommé \`dev\` avec la valeur \`"EXPO_NO_TELEMETRY=1 expo start"\`. **C'EST ESSENTIEL.**
-                6.  **Implémentation des fonctionnalités :**
-                    *   **Composants réutilisables :** Crée des composants React Native réutilisables pour les éléments d'interface utilisateur communs (par exemple, boutons, champs de texte, listes).
-                    *   **Gestion des données :** Choisis une méthode appropriée pour gérer les données (par exemple, états React, contexte React, Redux,zustand ou AsyncStorage).
-                    *   **API :** Si l'application a besoin de données externes, utilise l'API Fetch ou une bibliothèque similaire pour communiquer avec des services web.
-                    *   **Style :** Choisis une approche de style (par exemple, feuilles de style CSS, Styled Components, Tailwind CSS) et applique-la de manière cohérente.
-                    7.  **Priorisation de la clarté et de la maintenabilité :** Écris un code clair, bien commenté et facile à comprendre. Utilise des noms de fichiers et de variables descriptifs.
-                    8.  **Gestion des erreurs :** Anticipe les erreurs potentielles et inclus une gestion des erreurs appropriée.
-    
-                **Important :**
-    
-                *   Génère uniquement les fichiers et répertoires *nécessaires* pour répondre à la demande de l'utilisateur. Ne génère pas de code inutile ou excessif.
-                *   Respecte la structure de base Expo Router mentionnée ci-dessus.
-                *   Le script \`dev\` dans \`package.json\` doit *toujours* être \`"EXPO_NO_TELEMETRY=1 expo start"\`.
-                *   Ne génère pas de code inutile pour \`App.js\`, \`app.json\`, \`babel.config.js\` et \`expo-env.d.ts\` car ils sont déjà configurés par Expo et n'ont généralement pas besoin d'être modifiés directement. Concentre-toi sur le code spécifique à l'application demandée.
-                *   **L'objectif principal est de générer une application fonctionnelle avec une navigation correcte, basée sur la demande de l'utilisateur.**
-                `;
-        }
- 
-    // Ajouter la structure du projet existant au prompt
-    let prompt = basePrompt;
-    if (projectStructure) {
-        prompt += `\n\n**Structure du projet existant :**\n${projectStructure}\n\n**Tiens compte de cette structure existante et effectue les modifications en conséquence.**`;
-    } else {
-        prompt += `\n\n**Aucune structure de projet existante. Crée une nouvelle structure complète.**`;
-    }
- 
-    return prompt;
-};
+  *   Le cahier des charges doit être structuré de manière claire et concise, avec des titres, des sous-titres, des listes et des exemples.
+  *   **Important :** Le cahier des charges doit être *suffisamment détaillé* pour qu'un développeur humain puisse implémenter l'application en se basant uniquement sur ce document.
+
+2.  **Générer le Code de l'Application :**
+  *   Une fois le cahier des charges établi, tu vas générer le code React Native et Expo de l'application, en respectant scrupuleusement les spécifications du cahier des charges.
+  *   Cela inclut la génération de *tous* les fichiers nécessaires, même les plus petits (composants UI réutilisables, fichiers de configuration, etc.).
+  *   La structure du projet doit inclure *tous* les fichiers et dossiers suivants :
+
+      *   \`package.json\` : (Contient les dépendances et les scripts. **Ce fichier *DOIT* avoir *EXACTEMENT* le contenu suivant :** )
+          \`\`\`json
+          {
+            "name": "bolt-expo-starter",
+            "main": "expo-router/entry",
+            "version": "1.0.0",
+            "private": true,
+            "scripts": {
+              "dev": "EXPO_NO_TELEMETRY=1 expo start",
+              "build:web": "expo export --platform web",
+              "lint": "expo lint"
+            },
+            "dependencies": {
+              "@expo-google-fonts/inter": "^0.2.3",
+              "@expo/vector-icons": "^14.0.2",
+              "@lucide/lab": "^0.1.2",
+              "@react-navigation/bottom-tabs": "^7.2.0",
+              "@react-navigation/native": "^7.0.14",
+              "expo": "52.0.33",
+              "expo-blur": "^14.0.3",
+              "expo-constants": "^17.0.5",
+              "expo-font": "^13.0.3",
+              "expo-haptics": "^14.0.1",
+              "expo-linear-gradient": "^14.0.2",
+              "expo-linking": "^7.0.5",
+              "expo-router": "4.0.17",
+              "expo-splash-screen": "^0.29.21",
+              "expo-status-bar": "^2.0.1",
+              "expo-symbols": "^0.2.2",
+              "expo-system-ui": "^4.0.7",
+              "expo-web-browser": "^14.0.2",
+              "lucide-react-native": "^0.475.0",
+              "react": "18.3.1",
+              "react-dom": "18.3.1",
+              "react-native": "0.76.6",
+              "react-native-gesture-handler": "^2.23.0",
+              "react-native-reanimated": "^3.16.7",
+              "react-native-safe-area-context": "4.12.0",
+              "react-native-screens": "^4.4.0",
+              "react-native-svg": "^15.11.1",
+              "react-native-url-polyfill": "^2.0.0",
+              "react-native-web": "^0.19.13",
+              "react-native-webview": "13.12.5",
+              "@react-native-async-storage/async-storage": "1.21.0"
+            },
+            "devDependencies": {
+              "@babel/core": "^7.25.2",
+              "@types/react": "~18.3.12",
+              "typescript": "^5.3.3"
+            }
+          }
+          \`\`\`
+
+      *   \`app/(tabs)/_layout.tsx\` : (Layout pour la navigation par onglets. **Ce fichier *DOIT* être créé et modifié pour configurer les onglets spécifiques à l'application demandée.**)
+      *   \`app/(tabs)/index.tsx\` : (Écran d'accueil par défaut pour la navigation par onglets. **Ce fichier *DOIT* être créé.**)
+
+      *OU*
+
+      *   \`app/_layout.tsx\` : (Layout racine de l'application. **Ce fichier *DOIT* être créé et utilisé si la navigation n'est *PAS* basée sur des onglets.**  Dans ce cas, *NE PAS* générer \`app/(tabs)/_layout.tsx\` ou \`app/(tabs)/index.tsx\`.)
+
+      *   \`app/+not-found.tsx\` : (Gestion des erreurs 404, **ce fichier *DOIT* être créé.**)
+
+      *   \`tsconfig.json\` : (Configuration TypeScript, **ce fichier *DOIT* être créé.**)
+      *   \`App.js\` : (Point d'entrée principal de l'application, **ce fichier *DOIT* être créé.**)
+      *   \`app.json\` : (Configuration de l'application Expo, **ce fichier *DOIT* être créé.**)
+      *   \`babel.config.js\` : (Configuration Babel, **ce fichier *DOIT* être créé.**)
+      *   \`expo-env.d.ts\` : (Déclarations de type pour Expo, **ce fichier *DOIT* être créé.**)
+
+  *   **Important :** La structure de répertoires *DOIT* être respectée. Si la navigation par onglets est utilisée, les fichiers d'écran (comme \`index.tsx\`) *DOIVENT* être placés dans le répertoire \`app/(tabs)/\`.
+
+  *   **Important :** Le code généré doit être clair, bien commenté et facile à comprendre. Utilise des noms de fichiers et de variables descriptifs.
+  *   **Important :** Chaque page/composant doit être ENTIÈREMENT FONCTIONNEL, pas seulement une structure vide.
+  *   **Important :** Pour CHAQUE page ou composant que tu génères:
+      *   Implémente le design complet avec Tailwind CSS (pas juste des placeholders)
+      *   Implémente toute la logique fonctionnelle (gestion d'état, validation, appels API)
+      *   Ajoute des données fictives réalistes pour démontrer le fonctionnement
+  *   **Important :** N'utilise PAS de textes génériques comme "Contenu de la page" - implémente un contenu réel et pertinent.
+  *   **Important :** Chaque page doit être directement utilisable sans modification supplémentaire.
+
+  *   **Important :** Respecte la structure de base Expo Router mentionnée ci-dessus.
+  *   **Important :** Le script \`dev\` dans \`package.json\` doit *toujours* être \`"EXPO_NO_TELEMETRY=1 expo start"\`.
+  *   **Important :** Ne génère pas de code inutile pour \`App.js\`, \`app.json\`, \`babel.config.js\` et \`expo-env.d.ts\` car ils sont déjà configurés par Expo et n'ont généralement pas besoin d'être modifiés directement. Concentre-toi sur le code spécifique à l'application demandée.
+  *   **Important :** L'objectif principal est de générer une application fonctionnelle et complete.
+
+**EXIGENCE DE COMPLÉTUDE:**
+
+*   Ne te contente PAS de créer des écrans vides avec des titres génériques.
+*   Chaque écran DOIT avoir:
+  *   Une interface utilisateur complète et détaillée
+  *   Tous les composants d'UI nécessaires (formulaires, listes, boutons, etc.)
+  *   La logique d'état complète (useState, useContext, etc.)
+  *   Des interactions réelles et fonctionnelles
+  *   Des données fictives pour démontrer le fonctionnement
+*   Si l'écran est "Profil", implémente TOUS les éléments d'un profil complet (photo, infos, paramètres, etc.)
+*   Si l'écran est "Recherche", implémente un champ de recherche FONCTIONNEL avec filtres et résultats
+*   Les composants doivent être réutilisables et bien structurés
+  
+En résumé, voici les étapes à suivre :
+1. **Étape 1 : Analyse et Cahier des Charges :** Tu demandes à l'IA de générer un cahier des charges technique très détaillé, comme expliqué ci-dessus.
+2. **Étape 2 : Génération du Code :** Tu demandes à l'IA de générer le code de l'application en se basant *exclusivement* sur le cahier des charges.
+
+**Structure de la Réponse :**
+
+Ta réponse doit être structurée de la manière suivante :
+
+\`\`\`
+**Cahier des Charges Technique :**
+
+[Contenu du cahier des charges détaillé]
+
+**Code de l'Application :**
+
+\`\`\`
+[Contenu des fichiers (package.json, app/_layout.tsx, app/index.tsx, etc.)]
+\`\`\`
+\`\`\`
+        `;
+}
 };
     const fileExtractionPrompt = `Pour faciliter l'extraction automatique du code, utilise le format suivant pour chaque fichier :
 
@@ -657,137 +697,277 @@ const combineAllAICode = (messages: Message[]) => {
 };
 
 const sendMessage = async () => {
-    sessionStorage.removeItem('isSessionStarted');
-    setIsReloaded(false);
-    if (isReloaded) {
-        if (!userPrompt.trim() || isSending || !appId) return;
-
-        setIsSending(true);
-        const newMessage = { text: userPrompt, isUser: true };
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-        setUserPrompt('');
-
-        // Cacher les éléments après l'envoi du premier message
-        setAreElementsHidden(true);
-
-        try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-            if (!apiKey) {
-                console.error("GEMINI_API_KEY is missing in environment variables.");
-                setMessages(prevMessages => [...prevMessages, { text: "Error: API Key is missing in environment variables.", isUser: false }]);
-                setIsSending(false);
-                return;
-            }
-
-            const genAI = new GoogleGenerativeAI(apiKey);
-
-            const model = genAI.getGenerativeModel({
-                model: "gemini-2.0-flash",
-            });
-
-            const initialPrompt = getInitialPrompt(projectType);
-            const fileExtractionPromptText = fileExtractionPrompt;
-            const projectStructurePromptText = `\n\n**Important :** En te basant sur l'historique complet de la conversation ci-dessus, génère à nouveau la structure du projet *entière* (arborescence des fichiers et contenu) en tenant compte de toutes les modifications et ajouts effectués jusqu'à présent. Veille à ce que chaque fichier soit correct et à jour.`;
-            const improvePromptText = `\n\n**Improvement Instructions:** ${Improve_Prompt} \n\n**UI/UX Enhancement:** ${UX_UI}`;
-
-            // Utiliser tous les messages de la conversation comme historique
-            const history = messages.map(msg => `${msg.isUser ? "User: " : "AI: "}${msg.text}`).join("\n");
-
-            const input = initialPrompt + "\n\n" +
-                "**Historique de la conversation :**\n" + history + "\n\n" +
-                fileExtractionPromptText + improvePromptText + projectStructurePromptText + "\n\n" + // Ajout de projectStructurePromptText ici
-                "**Nouvelle question de l'utilisateur :**\n" + userPrompt;
-
-            const result = await model.generateContent(input);
-            let responseText = result.response.text();
-
-            const extractedFiles = extractCodeFiles(responseText);
-            setCodeFiles(extractedFiles);
-
-            const isCodeResponse = responseText.includes("<Extracted_code>");
-
-            const geminiMessage = { text: responseText, isUser: false, isCode: isCodeResponse };
-            setMessages(prevMessages => [...prevMessages, geminiMessage]);
-            setLastAIMessageWithCode(geminiMessage);
-            lastWebContainerCodeRef.current = responseText;
-
-            await saveMessageToAppwrite({ ...newMessage, appId: appId, createdAt: new Date() });
-            await saveMessageToAppwrite({ ...geminiMessage, appId: appId, createdAt: new Date() });
-
-        } catch (error: any) {
-            console.error("Error calling Gemini API:", error);
-            setMessages(prevMessages => [...prevMessages, { text: `Error: ${error}`, isUser: false }]);
-        } finally {
-            setIsSending(false);
+    // Initialisation Appwrite
+    const projectId = "679d739b000950dfb1e0";
+    const databaseId = "Boodupy-database-2025";
+    const collectionId = "setStarted-200900";
+    const appwriteEndpoint = "https://cloud.appwrite.io/v1";
+  
+    const client = new Client().setEndpoint(appwriteEndpoint).setProject(projectId);
+  
+    const databases = new Databases(client);
+  
+    let isSessionStarted = false;
+    console.log(appId);
+  
+    if (appId) {
+      // Vérification que appId a une valeur
+      // Récupérer la valeur de isSessionStarted depuis Appwrite
+      try {
+        const response = await databases.listDocuments(databaseId, collectionId, [
+          Query.equal("id", appId),
+        ]); // Utiliser 'id' au lieu de '$id'
+  
+        if (response.documents.length > 0) {
+          isSessionStarted = response.documents[0].isSessionStarted;
+        } else {
+          console.log(
+            "Document not found in sendMessage, assuming isSessionStarted is false."
+          );
         }
+      } catch (error) {
+        console.error(
+          "Error fetching isSessionStarted from Appwrite in sendMessage:",
+          error
+        );
+        // En cas d'erreur, on suppose que isSessionStarted est false pour permettre l'envoi du message
+      }
+    } else {
+      console.warn("appId is undefined in sendMessage. Skipping Appwrite fetch.");
     }
-    else {
-        if (!userPrompt.trim() || isSending || !appId) return;
-
-        setIsSending(true);
-        const newMessage = { text: userPrompt, isUser: true };
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-        setUserPrompt('');
-
-        // Cacher les éléments après l'envoi du premier message
-        setAreElementsHidden(true);
-
-        try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-            if (!apiKey) {
-                console.error("GEMINI_API_KEY is missing in environment variables.");
-                setMessages(prevMessages => [...prevMessages, { text: "Error: API Key is missing in environment variables.", isUser: false }]);
-                setIsSending(false);
-                return;
-            }
-
-            const genAI = new GoogleGenerativeAI(apiKey);
-
-            const model = genAI.getGenerativeModel({
-                model: "gemini-2.0-flash",
-            });
-
-            const initialPrompt = getInitialPrompt(projectType);
-            const fileExtractionPromptText = fileExtractionPrompt; // Renommer pour éviter la confusion
-            const projectStructurePromptText = projectStructurePrompt;
-            const improvePromptText = `\n\n**Improvement Instructions:** ${Improve_Prompt} \n\n**UI/UX Enhancement:** ${UX_UI}`;
-
-            // Construction de l'historique des messages
-            const history = messages.map(msg => `${msg.isUser ? "User: " : "AI: "}${msg.text}`).join("\n");
-
-            const input = initialPrompt + "\n\n" +
-                "**Historique de la conversation :**\n" + history + "\n\n" +
-                fileExtractionPromptText + improvePromptText + "\n\n" + // Ajout de Improve_Prompt et UX_UI ici
-                projectStructurePromptText + "\n\n" +
-                "**Nouvelle question de l'utilisateur :**\n" + userPrompt;
-
-            const result = await model.generateContent(input);
-            let responseText = result.response.text();
-
-            const extractedFiles = extractCodeFiles(responseText);
-            setCodeFiles(extractedFiles);
-
-            const isCodeResponse = responseText.includes("<Extracted_code>");
-
-            const geminiMessage = { text: responseText, isUser: false, isCode: isCodeResponse };
-            setMessages(prevMessages => [...prevMessages, geminiMessage]);
-
-            await saveMessageToAppwrite({ ...newMessage, appId: appId, createdAt: new Date() });
-            await saveMessageToAppwrite({ ...geminiMessage, appId: appId, createdAt: new Date() });
-
-            const updatedMessages = [...messages.filter(msg => msg.isCode), geminiMessage];
-            combineAllAICode(updatedMessages);
-
-        } catch (error: any) {
-            console.error("Error calling Gemini API:", error);
-            setMessages(prevMessages => [...prevMessages, { text: `Error: ${error}`, isUser: false }]);
-        } finally {
-            setIsSending(false);
+  
+    // **MODIFICATION IMPORTANTE : Utilisation de isSessionStarted directement**
+    if (!isSessionStarted) {
+      // Si isSessionStarted est false, on exécute le code initial
+      if (!userPrompt.trim() || isSending || !appId) return;
+  
+      setIsSending(true);
+      const newMessage = { text: userPrompt, isUser: true };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setUserPrompt("");
+  
+      // Cacher les éléments après l'envoi du premier message
+      setAreElementsHidden(true);
+  
+      try {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  
+        if (!apiKey) {
+          console.error("GEMINI_API_KEY is missing in environment variables.");
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { text: "Error: API Key is missing in environment variables.", isUser: false },
+          ]);
+          setIsSending(false);
+          return;
         }
+  
+        const genAI = new GoogleGenerativeAI(apiKey);
+  
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.0-flash",
+        });
+  
+        const initialPrompt = getInitialPrompt(projectType);
+        const fileExtractionPromptText = fileExtractionPrompt;
+        const projectStructurePromptText = `\n\n**Important :** En te basant sur l'historique complet de la conversation ci-dessus, génère à nouveau la structure du projet *entière* (arborescence des fichiers et contenu) en tenant compte de toutes les modifications et ajouts effectués jusqu'à présent. Veille à ce que chaque fichier soit correct et à jour.`;
+        const improvePromptText = `\n\n**Improvement Instructions:** ${Improve_Prompt} \n\n**UI/UX Enhancement:** ${UX_UI}`;
+  
+        // Utiliser tous les messages de la conversation comme historique
+        const history = messages
+          .map((msg) => `${msg.isUser ? "User: " : "AI: "}${msg.text}`)
+          .join("\n");
+  
+        const input =
+          initialPrompt +
+          "\n\n" +
+          "**Historique de la conversation :**\n" +
+          history +
+          "\n\n" +
+          fileExtractionPromptText +
+          improvePromptText +
+          projectStructurePromptText +
+          "\n\n" + // Ajout de projectStructurePromptText ici
+          "**Nouvelle question de l'utilisateur :**\n" +
+          userPrompt;
+  
+        const result = await model.generateContent(input);
+        let responseText = result.response.text();
+  
+        const extractedFiles = extractCodeFiles(responseText);
+        setCodeFiles(extractedFiles);
+  
+        const isCodeResponse = responseText.includes("<Extracted_code>");
+  
+        const geminiMessage = {
+          text: responseText,
+          isUser: false,
+          isCode: isCodeResponse,
+        };
+        setMessages((prevMessages) => [...prevMessages, geminiMessage]);
+        setLastAIMessageWithCode(geminiMessage);
+        lastWebContainerCodeRef.current = responseText;
+  
+        await saveMessageToAppwrite({ ...newMessage, appId: appId, createdAt: new Date() });
+        await saveMessageToAppwrite({ ...geminiMessage, appId: appId, createdAt: new Date() });
+  
+          const updatedMessages = [...messages.filter(msg => msg.isCode), geminiMessage];
+          combineAllAICode(updatedMessages);
+  
+      } catch (error: any) {
+        console.error("Error calling Gemini API:", error);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { text: `Error: ${error}`, isUser: false },
+        ]);
+      } finally {
+        setIsSending(false);
+      }
+  
+      // Mettre à jour la valeur de isSessionStarted dans Appwrite à true
+      if (appId) {
+        try {
+          await databases.updateDocument(databaseId, collectionId, appId, {
+            isSessionStarted: true, // Mettre à jour à true
+          });
+          console.log(`isSessionStarted updated to true for document ID: ${appId}`);
+          setIsReloaded(true);
+        } catch (updateError: any) {
+          // Si le document n'existe pas, le créer
+          if (updateError.code === 404) {
+            try {
+              await databases.createDocument(databaseId, collectionId, appId, {
+                isSessionStarted: true, // Initialiser à true
+                id: appId,
+              });
+              console.log(
+                `Document created with ID: ${appId} and isSessionStarted set to true`
+              );
+              setIsReloaded(true);
+            } catch (createError) {
+              console.error(`Error creating document with ID: ${appId}`, createError);
+            }
+          } else {
+            console.error(`Error updating document with ID: ${appId}`, updateError);
+          }
+        }
+      } else {
+        console.warn("appId is undefined, skipping Appwrite update.");
+      }
+    } else {
+      // Si isSessionStarted est true, on exécute le code de continuation
+      if (!userPrompt.trim() || isSending || !appId) return;
+  
+      setIsSending(true);
+      const newMessage = { text: userPrompt, isUser: true };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setUserPrompt("");
+  
+      // Cacher les éléments après l'envoi du premier message
+      setAreElementsHidden(true);
+  
+      try {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  
+        if (!apiKey) {
+          console.error("GEMINI_API_KEY is missing in environment variables.");
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { text: "Error: API Key is missing in environment variables.", isUser: false },
+          ]);
+          setIsSending(false);
+          return;
+        }
+  
+        const genAI = new GoogleGenerativeAI(apiKey);
+  
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.0-flash",
+        });
+  
+        const initialPrompt = getInitialPrompt(projectType);
+        const fileExtractionPromptText = fileExtractionPrompt; // Renommer pour éviter la confusion
+        const projectStructurePromptText = projectStructurePrompt;
+  
+        // Construction de l'historique des messages
+        const history = messages
+          .map((msg) => `${msg.isUser ? "User: " : "AI: "}${msg.text}`)
+          .join("\n");
+  
+        const input =
+          initialPrompt +
+          "\n\n" +
+          "**Historique de la conversation :**\n" +
+          history +
+          "\n\n" +
+          fileExtractionPromptText +
+          "\n\n" +
+          projectStructurePromptText +
+          "\n\n" +
+          "**Nouvelle question de l'utilisateur :**\n" +
+          userPrompt;
+  
+        const result = await model.generateContent(input);
+        let responseText = result.response.text();
+  
+        const extractedFiles = extractCodeFiles(responseText);
+        setCodeFiles(extractedFiles);
+  
+        const isCodeResponse = responseText.includes("<Extracted_code>");
+  
+        const geminiMessage = {
+          text: responseText,
+          isUser: false,
+          isCode: isCodeResponse,
+        };
+        setMessages((prevMessages) => [...prevMessages, geminiMessage]);
+  
+        await saveMessageToAppwrite({ ...newMessage, appId: appId, createdAt: new Date() });
+        await saveMessageToAppwrite({ ...geminiMessage, appId: appId, createdAt: new Date() });
+  
+          const updatedMessages = [...messages.filter(msg => msg.isCode), geminiMessage];
+          combineAllAICode(updatedMessages);
+  
+      } catch (error: any) {
+        console.error("Error calling Gemini API:", error);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { text: `Error: ${error}`, isUser: false },
+        ]);
+      } finally {
+        setIsSending(false);
+      }
+  
+      // Mettre à jour la valeur de isSessionStarted dans Appwrite à true
+      if (appId) {
+        try {
+          await databases.updateDocument(databaseId, collectionId, appId, {
+            isSessionStarted: true, // Mettre à jour à true
+          });
+          console.log(`isSessionStarted updated to true for document ID: ${appId}`);
+        } catch (updateError: any) {
+          // Si le document n'existe pas, le créer
+          if (updateError.code === 404) {
+            try {
+              await databases.createDocument(databaseId, collectionId, ID.unique(), {
+                isSessionStarted: true, // Initialiser à true
+                id: appId,
+              });
+              console.log(
+                `Document created with ID: ${appId} and isSessionStarted set to true`
+              );
+            } catch (createError) {
+              console.error(`Error creating document with ID: ${appId}`, createError);
+            }
+          } else {
+            console.error(`Error updating document with ID: ${appId}`, updateError);
+          }
+        }
+      } else {
+        console.warn("appId is undefined, skipping Appwrite update.");
+      }
     }
-};
+  };
 
     const saveMessageToAppwrite = async (message: any) => {
         try {
@@ -892,113 +1072,11 @@ const sendMessage = async () => {
 
     // Static package.json for mobile projects
     
-    const [activeIndex, setActiveIndex] = useState(0)
-    const timerRef = useRef<NodeJS.Timeout | null>(null)
-    const cards = [
-      {
-        id: 1,
-        title: "Carte 1",
-        description: "Description de la carte 1",
-        image: "/screens/ChatGPT iOS 18.png",
-      },
-      {
-        id: 2,
-        title: "Carte 2",
-        description: "Description de la carte 2",
-        image: "/screens/Instagram iOS 73.png",
-      },
-      {
-        id: 3,
-        title: "Carte 3",
-        description: "Description de la carte 3",
-        image: "/screens/Duolingo iOS 7.png",
-      },
-      {
-        id: 4,
-        title: "Carte 4",
-        description: "Description de la carte 4",
-        image: "/screens/YouTube iOS 11.png",
-      },
-      {
-        id: 5,
-        title: "Carte 5",
-        description: "Description de la carte 5",
-        image: "/screens/Rarible iOS 1.png",
-      },
-    ]
-
-
-
-    const startRotationTimer = () => {
-        // Clear any existing timer
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
     
-        // Set a new timer that changes the active index every 4 seconds
-        timerRef.current = setInterval(() => {
-          setActiveIndex((prevIndex) => (prevIndex === cards.length - 1 ? 0 : prevIndex + 1))
-        }, 4000)
-      }
-    
-      // Start the timer when the component mounts
-      useEffect(() => {
-        startRotationTimer()
-    
-        // Clean up the timer when the component unmounts
-        return () => {
-          if (timerRef.current) {
-            clearInterval(timerRef.current)
-          }
-        }
-      }, [])
-    
-      
-
     
      
       
-       const Slider = () => {
-        return (
-            <div className="relative h-full w-full perspective-[1200px]">
-            {cards.map((card, index) => {
-              // Calculate the angle for each card
-              const theta = (2 * Math.PI * (index - activeIndex)) / cards.length
-              const radius = 300 // Distance from center
-  
-              return (
-                <motion.div
-                  key={card.id}
-                  className="absolute left-1/2 top-1/2 h-[250px] w-[150px] md:w-[300px] -translate-x-1/2 -translate-y-1/2"
-                  animate={{
-                    x: radius * Math.sin(theta),
-                    z: radius * Math.cos(theta) - radius,
-                    rotateY: (theta * 180) / Math.PI,
-                    scale: index === activeIndex ? 1.2 : 1,
-                    opacity: Math.cos(theta) < 0 ? 0.3 : 1,
-                  }}
-                  transition={{ duration: 0.5 }}
-                  style={{ zIndex: Math.cos(theta) < 0 ? 0 : 10 }}
-                >
-                  <div className="md:h-[500px] w-full overflow-hidden rounded-[10px] md:rounded-[40px] border border-[#EEE] bg-white shadow-xl transition-shadow hover:shadow-2xl">
-                    <div className="flex h-full flex-col">
-                      <div className="md:h-[500px] h-[250px] overflow-hidden">
-                        <img
-                          src={card.image || "/placeholder.svg"}
-                          alt={card.title}
-                          className="md:h-[500px] h-[250px] w-full object-cover"
-                        />
-                      </div>
-                      
-                    </div>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        
-        )
-      }
+       
       
 
 
@@ -1052,47 +1130,304 @@ const sendMessage = async () => {
                 </div>
             </header>
 
+
+{!webContainerURL &&(
+  <div className='w-full flex-col relative h-auto flex items-center justify-center'>
+                <div className='md:w-[50%] md:relative md:mb-84 not-md:w-[90%]'>
+                {messages.map((message, index) => {
+        if (message.isCode) {
+          const fileRegex = /Nom du fichier: (.+?)\n<Extracted_code>\n([\s\S]*?)\n<\/Extracted_code>/g;
+          const files = [];
+          let match;
+
+          while ((match = fileRegex.exec(message.text)) !== null) {
+            files.push({ name: match[1], code: match[2] });
+          }
+
+          return (
+            <div key={message.$id || index} className="flex flex-col items-start w-full">
+              {!message.isUser && <div className="mr-2"><GeminiIcon /></div>}
+
+              {/* Affichage du message sans les fichiers */}
+              <div className="rounded-xl rounded-tr-[3px] px-4 py-3 mb-2 bg-[#] max-w-[80%]">
+                <p className="whitespace-pre-wrap line-clamp-10 mb-2">
+                  {message.text.replace(fileRegex, "").trim()}
+                </p>
+              </div>
+
+              {/* Affichage des fichiers extraits */}
+
+              <button 
+              style={{border: "1px solid #eee", fontSize: "14px"}}
+  className="px-3 py-1 bg-white border border-[#EEE] text-[12px] rounded-[25px]"
+  onClick={() => setShowCode(!showCode)}
+>
+  {showCode ? "Hide Code" : "Show Code"}
+</button>
+
+<div
+      className={`
+        text-gray-700 
+        w-[70%]
+        ${showCode ? '' : ' sr-only '}
+        p-4 rounded-md
+      `}
+    >
+              {files.map((file, fileIndex) => (
+                <div key={fileIndex} className="h-[200px] w-[90%] overflow-x-hidden bg-white text-black border border-[#EEE] rounded-[22px]  my-2 overflow-auto">
+                  <div className="w-full px-3 py-2 border-b border-[#EEE] flex items-center justify-between">
+                    <div className='flex items-center gap-2'>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" className="!inline-block h-[18px] w-[18px] size-full" viewBox="0 0 16 16"><g fill="none" stroke="#8caaee" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11.3c4.14 0 7.5-1.28 7.5-2.86S12.14 5.58 8 5.58.5 6.86.5 8.44s3.36 2.87 7.5 2.87Z"></path><path d="M5.52 9.87c2.07 3.6 4.86 5.86 6.23 5.07 1.37-.8.8-4.34-1.27-7.93S5.62 1.16 4.25 1.95s-.8 4.34 1.27 7.92"></path><path d="M5.52 7.01c-2.07 3.59-2.64 7.14-1.27 7.93s4.16-1.48 6.23-5.07c2.07-3.58 2.64-7.13 1.27-7.92-1.37-.8-4.16 1.47-6.23 5.06"></path><path d="M8.5 8.44a.5.5 0 0 1-.5.5.5.5 0 0 1-.5-.5.5.5 0 0 1 .5-.5.5.5 0 0 1 .5.5"></path></g></svg>
+                      <h3 className="min-w-0 truncate text-left text-xs text-forgerground">{file.name}</h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                    <button
+  onClick={() => {
+    try {
+      navigator.clipboard.writeText(file.code);
+      alert("Code copied to clipboard!"); // ou utilisez une notification plus élégante
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+      alert("Failed to copy code to clipboard.");
+    }
+  }}
+  className="  rounded text-xs"
+>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-clipboard size-3"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>
+</button>
+                    </div>
+                  </div>
+                  <AceEditor
+                    mode="javascript" // Détecter automatiquement le mode à partir du nom de fichier
+                    theme="github"
+                    value={file.code}
+                    readOnly={true} // Empêche la modification du code
+                    height="160px"  // Ajuste la hauteur si nécessaire
+                    width="100%"
+                    fontSize={13}
+                    showPrintMargin={false}
+                    showGutter={true}
+                    highlightActiveLine={true}
+                    setOptions={{
+                      enableBasicAutocompletion: true,
+                      enableLiveAutocompletion: true,
+                      enableSnippets: false,
+                      showLineNumbers: false,
+                      tabSize: 4,
+                    }}
+                  />
+                </div>
+              ))}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div key={message.$id || index} className={`flex items-start ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+            {!message.isUser && <div className="mr-2"><GeminiIcon /></div>}
+
+            <div className={`rounded-full px-4 py-2  flex items-center justify-center  mb-2 ${message.isUser ? 'border h-auto border-[#fafafa] bg-[#fafafa] rounded-full flex items-center justify-center' : 'text-[17px]'}`} >
+              <p className="whitespace-pre-wrap  ">{message.text}</p>
+            </div>
+          </div>
+        );
+      })}
+                </div>
+                
+                {!webContainerURL &&(
+                  <div className='w-full fixed flex items-center z-[9999] justify-center bottom-3'>
+                  <div className='md:w-[600px] bg-white z-[9999] rounded-[25px] border border-[#fafafa] p-2'>
+                              <textarea
+      placeholder="Ask AI to build you an app..."
+      value={userPrompt}
+      onChange={handleInputChange}
+      onKeyDown={handleKeyDown}
+      disabled={isSending || isWebContainerActive} // Désactiver si envoi en cours ou WebContainer actif
+      className="w-full h-[120px] p-3 border-none focus:outline-none rounded-[25px] resize-none"
+  />
+
+  <button onClick={sendMessage}>send</button>
+                  </div>
+                              
+                  </div>
+                )}
+
+{webContainerURL &&(
+                  <div className='w-full  fixed  flex items-center z-[9999] justify-start bottom-3'>
+                  <div className='md:w-[600px] md:ml-20 bg-white z-[9999] rounded-[25px] border border-[#fafafa] p-2'>
+                              <textarea
+      placeholder="Ask AI to build you an app..."
+      value={userPrompt}
+      onChange={handleInputChange}
+      onKeyDown={handleKeyDown}
+      disabled={isSending || isWebContainerActive} // Désactiver si envoi en cours ou WebContainer actif
+      className="w-full h-[120px] p-3 border-none focus:outline-none rounded-[25px] resize-none"
+  />
+
+  <button onClick={sendMessage}>send</button>
+                  </div>
+                              
+                  </div>
+                )}
+            </div>
+)}
+
+{webContainerURL &&(
+  <div className='md:w-1/2  flex-col relative h-auto flex items-center justify-center'>
+                <div className='md:w-full p-4 md:relative md:mb-84 not-md:w-[90%]'>
+                {messages.map((message, index) => {
+        if (message.isCode) {
+          const fileRegex = /Nom du fichier: (.+?)\n<Extracted_code>\n([\s\S]*?)\n<\/Extracted_code>/g;
+          const files = [];
+          let match;
+
+          while ((match = fileRegex.exec(message.text)) !== null) {
+            files.push({ name: match[1], code: match[2] });
+          }
+
+          return (
+            <div key={message.$id || index} className="flex flex-col items-start w-full">
+              {!message.isUser && <div className="mr-2"><GeminiIcon /></div>}
+
+              {/* Affichage du message sans les fichiers */}
+              <div className="rounded-xl rounded-tr-[3px] px-4 py-3 mb-2 bg-[#] max-w-[80%]">
+                <p className="whitespace-pre-wrap line-clamp-10 mb-2">
+                  {message.text.replace(fileRegex, "").trim()}
+                </p>
+              </div>
+
+              {/* Affichage des fichiers extraits */}
+
+              <button 
+              style={{border: "1px solid #eee", fontSize: "14px"}}
+  className="px-3 py-1 bg-white border border-[#EEE] text-[12px] rounded-[25px]"
+  onClick={() => setShowCode(!showCode)}
+>
+  {showCode ? "Hide Code" : "Show Code"}
+</button>
+
+<div
+      className={`
+        text-gray-700 
+        w-[100%]
+        ${showCode ? '' : ' sr-only '}
+        p-4 rounded-md
+      `}
+    >
+              {files.map((file, fileIndex) => (
+                <div key={fileIndex} className="h-[200px] w-[100%] overflow-x-hidden bg-white text-black border border-[#EEE] rounded-[22px]  my-2 overflow-auto">
+                  <div className="w-full px-3 py-2 border-b border-[#EEE] flex items-center justify-between">
+                    <div className='flex items-center gap-2'>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" className="!inline-block h-[18px] w-[18px] size-full" viewBox="0 0 16 16"><g fill="none" stroke="#8caaee" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11.3c4.14 0 7.5-1.28 7.5-2.86S12.14 5.58 8 5.58.5 6.86.5 8.44s3.36 2.87 7.5 2.87Z"></path><path d="M5.52 9.87c2.07 3.6 4.86 5.86 6.23 5.07 1.37-.8.8-4.34-1.27-7.93S5.62 1.16 4.25 1.95s-.8 4.34 1.27 7.92"></path><path d="M5.52 7.01c-2.07 3.59-2.64 7.14-1.27 7.93s4.16-1.48 6.23-5.07c2.07-3.58 2.64-7.13 1.27-7.92-1.37-.8-4.16 1.47-6.23 5.06"></path><path d="M8.5 8.44a.5.5 0 0 1-.5.5.5.5 0 0 1-.5-.5.5.5 0 0 1 .5-.5.5.5 0 0 1 .5.5"></path></g></svg>
+                      <h3 className="min-w-0 truncate text-left text-xs text-forgerground">{file.name}</h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                    <button
+  onClick={() => {
+    try {
+      navigator.clipboard.writeText(file.code);
+      alert("Code copied to clipboard!"); // ou utilisez une notification plus élégante
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+      alert("Failed to copy code to clipboard.");
+    }
+  }}
+  className="  rounded text-xs"
+>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-clipboard size-3"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>
+</button>
+                    </div>
+                  </div>
+                  <AceEditor
+                    mode="javascript" // Détecter automatiquement le mode à partir du nom de fichier
+                    theme="github"
+                    value={file.code}
+                    readOnly={true} // Empêche la modification du code
+                    height="160px"  // Ajuste la hauteur si nécessaire
+                    width="100%"
+                    fontSize={13}
+                    showPrintMargin={false}
+                    showGutter={true}
+                    highlightActiveLine={true}
+                    setOptions={{
+                      enableBasicAutocompletion: true,
+                      enableLiveAutocompletion: true,
+                      enableSnippets: false,
+                      showLineNumbers: false,
+                      tabSize: 4,
+                    }}
+                  />
+                </div>
+              ))}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div key={message.$id || index} className={`flex items-start ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+            {!message.isUser && <div className="mr-2"><GeminiIcon /></div>}
+
+            <div className={`rounded-full px-4 py-2  flex items-center justify-center  mb-8 ${message.isUser ? 'border h-auto border-[#fafafa] bg-[#fafafa] rounded-full flex items-center justify-center' : 'text-[17px]'}`} >
+              <p className="whitespace-pre-wrap  ">{message.text}</p>
+            </div>
+          </div>
+        );
+      })}
+                </div>
+                
+                {!webContainerURL &&(
+                  <div className='w-full fixed flex items-center z-[9999] justify-center bottom-3'>
+                  <div className='md:w-[600px] bg-white z-[9999] rounded-[25px] border border-[#fafafa] p-2'>
+                              <textarea
+      placeholder="Ask AI to build you an app..."
+      value={userPrompt}
+      onChange={handleInputChange}
+      onKeyDown={handleKeyDown}
+      disabled={isSending || isWebContainerActive} // Désactiver si envoi en cours ou WebContainer actif
+      className="w-full h-[120px] p-3 border-none focus:outline-none rounded-[25px] resize-none"
+  />
+
+  <button onClick={sendMessage}>send</button>
+                  </div>
+                              
+                  </div>
+                )}
+
+{webContainerURL &&(
+                  <div className='w-full  fixed  flex items-center z-[9999] justify-start bottom-3'>
+                  <div className='md:w-[600px] md:ml-100 bg-white z-[9999] rounded-[25px] border border-[#fafafa] p-2'>
+                              <textarea
+      placeholder="Ask AI to build you an app..."
+      value={userPrompt}
+      onChange={handleInputChange}
+      onKeyDown={handleKeyDown}
+      disabled={isSending || isWebContainerActive} // Désactiver si envoi en cours ou WebContainer actif
+      className="w-full h-[120px] p-3 border-none focus:outline-none rounded-[25px] resize-none"
+  />
+
+  <button onClick={sendMessage}>send</button>
+                  </div>
+                              
+                  </div>
+                )}
+            </div>
+)}
+            
+
             {/* Main Content */}
             <div className="flex-grow  flex flex-col md:flex-row overflow-hidden">
                 {/* Chat Zone */}
-                <div className={`flex-grow flex flex-col p-4 ${webContainerURL ? 'md:w-1/2' : 'md:w-full'}`}>
+                <div className={`flex-grow justify-center items-center w-[300px] flex flex-col p-4 ${webContainerURL ? 'md:w-1/2' : 'md:w-full'}`}>
                     {/* Messages Display */}
-                    <div className="flex-grow overflow-y-auto space-y-2">
-                    {messages.map((message, index) => {
-  const filesIndex = message.isCode ? message.text.indexOf('Fichiers:') : -1;
-  const structureIndex = message.isCode ? message.text.indexOf('Structure du Projet:') : -1;
-  const shouldHide = message.isCode && (filesIndex !== -1 || structureIndex !== -1);
+                    <div className="flex-grow overflow-y-auto md:w-[55%] px-3 space-y-2">
+                    
 
-  return (
-    <div
-      key={message.$id || index}
-      className={`flex items-start ${message.isUser ? 'justify-end' : 'justify-start'} ${shouldHide ? 'opacity-0' : ''}`}
-    >
-      {!message.isUser && (
-        <div className="mr-2">
-          <GeminiIcon />
-        </div>
-      )}
-      <div
-        className={`rounded-xl rounded-tr-[3px] px-4 py-3 mb-2 ${message.isUser
-          ? 'bg-[#E9EEF6] '
-          : 'text-[17px]'
-          }`}
-        style={{ maxWidth: '80%' }}
-      >
-        {message.isCode ? (
-          <p className="whitespace-pre-wrap mb-2">{message.text}</p>
-        ) : (
-          <p className="whitespace-pre-wrap font-semIbold mb-2">{message.text}</p>
-        )}
-      </div>
-    </div>
-  );
-})}
                        <div
     className={`h-full w-full overflow-x-hidden flex items-center justify-center gap-1 transition-opacity duration-500 ${areElementsHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
 >
-<Slider></Slider>
+{/* <Slider></Slider> */}
 
                         </div>
                     </div>
@@ -1135,66 +1470,9 @@ const sendMessage = async () => {
                                 <h2 className="text-1xl font-semibold">Build me a Threads clone</h2>
                             </div>
                         </div>
-                    <div className="md:w-[600px] w-[300px] h-[100px] md:h-[130px] mt-18  backdrop-blur-lg  bg-[#EDEDEDB8]  rounded-[25px]">
-                            <div className='w-full p-2'>
-                            <textarea
-    placeholder="Ask AI to build you an app..."
-    value={userPrompt}
-    onChange={handleInputChange}
-    onKeyDown={handleKeyDown}
-    disabled={isSending || isWebContainerActive} // Désactiver si envoi en cours ou WebContainer actif
-    className="w-full h-[120px] p-3 border-none focus:outline-none rounded-[25px] resize-none"
-/>
-                            </div>
-                            <div className=" bottom-1 p-2 w-full absolute flex items-center justify-between">
-                                <div className="items-center gap-1 flex">
-                                <div >
-                                {/* <Terminal
-    webContainer={webContainer}
-    codeFiles={codeFiles}
-    setWebContainerURL={setWebContainerURL}
-    projectType={projectType}
-/> */}
-                                </div>
-
-                                    <div className="px-1 py-1 rounded-[12px]">
-                                    {userPrompt.trim() === '' ? (
-                                         <Paperclip size={20} color='#888' className='pointer-events-none'></Paperclip>
-                                    ) : (
-                                        <Paperclip size={20} color='#000' className='pointer-events-auto cursor-pointer'></Paperclip>
-                                    )}
-                                       
-                                    </div>
-                                    <div className="px-1 py-1 rounded-[12px]">
-                                    {userPrompt.trim() === '' ? (
-                                         <Stars size={20} color='#888' className='pointer-events-none'></Stars>
-                                    ) : (
-                                        <Stars size={20} color='#000' className='pointer-events-auto cursor-pointer'></Stars>
-                                    )}
-                                       
-                                    </div>
-                                    <div className="px-1 py-1 rounded-[12px]">
-                                    {userPrompt.trim() === '' ? (
-                                         <Mic size={20} color='#888' className='pointer-events-none'></Mic>
-                                    ) : (
-                                        <Mic size={20} color='#000' className='pointer-events-auto cursor-pointer'></Mic>
-                                    )}
-                                       
-                                    </div>
-                                </div>
-                                <button onClick={sendMessage} disabled={isSending}>
-                                    {userPrompt.trim() === '' ? (
-                                        <div className="px-2 py-2 rounded-[12px] bg-[#fafafa] opacity-70">
-                                            <Send size={18} />
-                                        </div>
-                                    ) : (
-                                        <div className="px-2 py-2 rounded-[12px] bg-[#000]">
-                                            <Send size={18} color="white" />
-                                        </div>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
+                    {/* <div className="md:w-[600px] w-[300px] h-[100px] md:h-[130px] mt-18  backdrop-blur-lg  bg-[#EDEDEDB8]  rounded-[25px]">
+                            
+                        </div> */}
                     </div>
 
                     
@@ -1226,9 +1504,9 @@ const sendMessage = async () => {
                     </div>
                     </div>
                 ) : (
-                    // Sinon, on affiche l'iframe dans sa div d'origine
-                    <div className={`flex-grow overflow-hidden ${isIframeExtended ? 'md:w-full fixed top-0 z-[999]' : 'md:w-1/2'}`} style={{ height: '100%' }}>
-                        <iframe
+
+                  <>
+                      <iframe
                             ref={iframeRef}
                             src={webContainerURL}
                             width="100%"
@@ -1237,7 +1515,9 @@ const sendMessage = async () => {
                             className="border-none"
 
                         />
-                    </div>
+                  </>
+                    // Sinon, on affiche l'iframe dans sa div d'origine
+                    
                 )
             )}
             </div>

@@ -280,7 +280,7 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({
 
             if (fileSystemTree['package.json'] && 'file' in fileSystemTree['package.json']) {
                 console.log('Installing dependencies...');
-                const installProcess = await webContainerInstance.spawn('npm', ['install']);
+                const installProcess = await webContainerInstance.spawn('pnpm', ['install']);
                 installProcess.output.pipeTo(new WritableStream({
                     write(data) {
                         console.log(data);
@@ -301,7 +301,7 @@ const WebContainerComponent: React.FC<WebContainerComponentProps> = ({
 
             let devCommand = 'run dev';
 
-            const devServerProcess = await webContainerInstance.spawn('npm', devCommand.split(' '));
+            const devServerProcess = await webContainerInstance.spawn('pnpm', devCommand.split(' '));
             devServerProcess.output.pipeTo(new WritableStream({
                 write(data) {
                     console.log(data);

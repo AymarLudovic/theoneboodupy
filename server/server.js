@@ -3,17 +3,52 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const paypal = require('@paypal/checkout-server-sdk');
 const path = require('path');
+const { Groq } = require('groq-sdk'); 
+
+ // Load environment variables from .env file
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT =  5000;
 
 app.use(cors()); // Permettre les requêtes CORS
 app.use(bodyParser.json());
 
 
+app.post('/api/groq', async (req, res) => {
+    try {
+      const { input } = req.body;
+      const groqApiKey = "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";
+  
+      if (!groqApiKey) {
+        console.error("VITE_GROQ_API_KEY is missing!");
+        return res.status(500).json({ message: "Groq API key is missing!" });
+      }
+  
+      const groq = new Groq({ apiKey: groqApiKey });
+  
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: input }],
+        model: "llama-3.3-70b-versatile",
+        temperature: 1,
+        max_completion_tokens: 1024,
+        top_p: 1,
+        stop: null,
+      });
+  
+      const responseText = chatCompletion.choices?.[0]?.message?.content || "";
+      res.status(200).json({ responseText });
+  
+    } catch (error) {
+      console.error("Error in /api/groq:", error);
+      res.status(500).json({ message: error.message || "An error occurred" });
+    }
+  });
+
 app.get('/payments', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html')); // Assurez-vous que le chemin est correct
 });
+
+
 
 // Configurer le client PayPal
 const clientId = 'AYvPy5jTSvgSKnkb883xjro4-LyVoN7OueY_UWzD27Qc-ODHs5yhMRT-DO7Fu4sfptv8xCG7wh5q9rXX';

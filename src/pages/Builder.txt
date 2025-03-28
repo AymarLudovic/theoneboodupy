@@ -631,6 +631,8 @@ try {
 }
 };
 
+
+
     const saveMessageToAppwrite = async (message: any) => {
         try {
             await databases.createDocument(
